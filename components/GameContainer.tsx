@@ -8,6 +8,7 @@ import ChessBlitz from './games/ChessBlitz';
 import CityBuilderLite from './games/CityBuilderLite';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import SpaceMinerTycoon from './games/SpaceMinerTycoon';
+import MazeEscape from './games/MazeEscape';
 
 interface GameContainerProps {
   game: Game;
@@ -29,6 +30,8 @@ const GameContainer: React.FC<GameContainerProps> = ({ game, onExit }) => {
         return <CityBuilderLite />;
       case 'space-miner-tycoon':
         return <SpaceMinerTycoon />;
+      case 'maze-escape':
+        return <MazeEscape />;
       default:
         return (
           <div className="text-center">
