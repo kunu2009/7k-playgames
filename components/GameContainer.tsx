@@ -4,7 +4,7 @@ import ParticleBackground from './ParticleBackground';
 import PingPong from './games/PingPong';
 import PixelRunner from './games/PixelRunner';
 import MindMerge from './games/MindMerge';
-import ChessBlitz from './games/ChessBlitz'; // Import the new game
+import ChessBlitz from './games/ChessBlitz';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 
 interface GameContainerProps {
@@ -21,7 +21,7 @@ const GameContainer: React.FC<GameContainerProps> = ({ game, onExit }) => {
         return <PixelRunner />;
       case 'mind-merge':
         return <MindMerge />;
-      case '7k-chess-blitz': // Add the case for Chess Blitz
+      case '7k-chess-blitz':
         return <ChessBlitz />;
       default:
         return (
@@ -45,7 +45,7 @@ const GameContainer: React.FC<GameContainerProps> = ({ game, onExit }) => {
           <span>Back to Hub</span>
         </button>
       </div>
-      <div className="relative z-10 w-full max-w-[90vw] md:max-w-4xl lg:max-w-5xl xl:max-w-6xl flex items-center justify-center">
+      <div className="relative z-10 w-full max-w-[95vw] md:max-w-4xl lg:max-w-5xl xl:max-w-6xl flex items-center justify-center">
         {renderGame()}
       </div>
     </div>
