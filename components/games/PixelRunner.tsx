@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import useLocalStorage from '../../hooks/useLocalStorage';
+import { statsManager } from '../../utils/statsManager';
 
 const ASPECT_RATIO = 800 / 500;
 const ORIGINAL_WIDTH = 800;
@@ -23,7 +23,7 @@ const PixelRunner: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useLocalStorage('pixel-runner-highscore', 0);
+  const [highScore, setHighScore] = useState(0);
   const [gameState, setGameState] = useState<'start' | 'playing' | 'gameOver'>('start');
 
   // Use refs for mutable game state
@@ -40,6 +40,10 @@ const PixelRunner: React.FC = () => {
       gravity: 0.7, jumpForce: -16, initialGameSpeed: 5, gameSpeedIncrement: 0.001,
       spawnInterval: 90
   });
+  
+  useEffect(() => {
+    setHighScore(statsManager.getGameStats('pixel-runner').highScore);
+  }, []);
 
   const updateConstants = useCallback(() => {
       if (!containerRef.current) return;
@@ -226,8 +230,9 @@ const PixelRunner: React.FC = () => {
         for (const obj of gameObjects.current) {
             if (obj.type === 'ground' || obj.type === 'flying') {
               if (playerX < obj.x + obj.width && playerX + playerWidth > obj.x && player.current.y < obj.y + obj.height && player.current.y + playerHeight > obj.y) {
+                const newHighScore = statsManager.updateHighScore('pixel-runner', score);
+                setHighScore(newHighScore);
                 setGameState('gameOver');
-                if (score > highScore) setHighScore(score);
                 break; 
               }
             } else if (obj.type === 'orb' && !obj.collected) {
@@ -244,7 +249,7 @@ const PixelRunner: React.FC = () => {
       ctx.fillStyle = '#d3d0cb';
       ctx.font = `700 ${32 * scale}px Orbitron`;
       ctx.textAlign = 'left'; ctx.fillText(`Score: ${score}`, 20 * scale, 40 * scale);
-      ctx.textAlign = 'right'; ctx.fillText(`High: ${highScore > score ? highScore : score}`, width - 20 * scale, 40 * scale);
+      ctx.textAlign = 'right'; ctx.fillText(`High: ${highScore}`, width - 20 * scale, 40 * scale);
       
       ctx.textAlign = 'center';
       if (gameState === 'start') {
@@ -263,7 +268,7 @@ const PixelRunner: React.FC = () => {
       window.removeEventListener('resize', updateConstants);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [gameState, score, highScore, setHighScore, handleInput, resetGame, updateConstants]);
+  }, [gameState, score, highScore, handleInput, resetGame, updateConstants]);
 
   return (
     <div ref={containerRef} className="w-full h-full cursor-pointer">

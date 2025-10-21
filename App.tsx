@@ -11,6 +11,7 @@ import SplashScreen from './components/SplashScreen';
 import GameContainer from './components/GameContainer';
 import { useSounds } from './hooks/useSounds';
 import { SOUND_EFFECTS } from './utils/sounds';
+import { statsManager } from './utils/statsManager';
 
 type FilterType = 'ALL' | GameType | 'FAVORITES';
 
@@ -45,6 +46,7 @@ function App() {
   }, [filter, favorites]);
   
   const handlePlayGame = useCallback((game: Game) => {
+    statsManager.incrementTimesPlayed(game.id);
     setSelectedGame(null);
     setActiveGame(game);
   }, []);

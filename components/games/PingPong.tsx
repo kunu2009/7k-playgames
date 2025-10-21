@@ -146,8 +146,12 @@ const PingPong: React.FC = () => {
             resetBall(-1);
         }
         
+        // AI Opponent Logic: Make the opponent's paddle track the ball's position.
+        const aiReactionSpeed = 0.1; // A value between 0-1. Higher is faster/harder.
         const targetY = ball.current.y - paddleHeight / 2;
-        const newOpponentY = opponent.current.y + (targetY - opponent.current.y) * 0.1;
+        const newOpponentY = opponent.current.y + (targetY - opponent.current.y) * aiReactionSpeed;
+        
+        // Ensure the AI paddle stays within the game boundaries.
         opponent.current.y = Math.max(0, Math.min(height - paddleHeight, newOpponentY));
       }
 
@@ -234,7 +238,6 @@ const PingPong: React.FC = () => {
     e.preventDefault();
     if (gameStatus.current === 'start') {
         gameStatus.current = 'playing';
-        setMessage('');
     } else if (gameStatus.current === 'gameOver') {
         resetGame();
     }
@@ -274,7 +277,7 @@ const PingPong: React.FC = () => {
     <div ref={containerRef} className="w-full h-full cursor-none">
        <canvas
         ref={canvasRef}
-        onClick={handleInteractionStart}
+        onMouseDown={handleInteractionStart}
         onTouchStart={handleInteractionStart}
         onMouseMove={handleMove}
         onTouchMove={handleMove}
