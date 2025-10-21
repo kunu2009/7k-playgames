@@ -100,6 +100,7 @@ const PingPong: React.FC = () => {
     updateDimensions();
     resetGame();
 
+    let animationFrameId: number;
     const gameLoop = () => {
       const { width, height, paddleWidth, paddleHeight, ballRadius } = gameDimensions.current;
       const ctx = canvasRef.current?.getContext('2d');
@@ -211,7 +212,7 @@ const PingPong: React.FC = () => {
       animationFrameId = requestAnimationFrame(gameLoop);
     };
 
-    let animationFrameId = requestAnimationFrame(gameLoop);
+    animationFrameId = requestAnimationFrame(gameLoop);
 
     return () => {
       window.removeEventListener('resize', updateDimensions);
@@ -239,40 +240,34 @@ const PingPong: React.FC = () => {
     }
   }, [resetGame]);
 
-  useEffect(() => {
+  const handleMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
-
-    const getClientY = (e: MouseEvent | TouchEvent) => {
-        if (e instanceof MouseEvent) return e.clientY;
-        if (e.touches && e.touches.length > 0) return e.touches[0].clientY;
+    
+    const getClientY = (evt: React.MouseEvent | React.TouchEvent) => {
+        if ('clientY' in evt) {
+            return evt.clientY;
+        }
+        if (evt.touches && evt.touches.length > 0) {
+            return evt.touches[0].clientY;
+        }
         return null;
     }
 
-    const handleMove = (e: MouseEvent | TouchEvent) => {
-      e.preventDefault();
-      const clientY = getClientY(e);
-      if (clientY === null) return;
+    const clientY = getClientY(e);
+    if (clientY === null) return;
 
-      const rect = canvas.getBoundingClientRect();
-      let mouseY = clientY - rect.top;
-      
-      let newY = mouseY - gameDimensions.current.paddleHeight / 2;
-      
-      if (newY < 0) newY = 0;
-      if (newY > gameDimensions.current.height - gameDimensions.current.paddleHeight) {
-        newY = gameDimensions.current.height - gameDimensions.current.paddleHeight;
-      }
-      player.current.y = newY;
-    };
-
-    canvas.addEventListener('mousemove', handleMove);
-    canvas.addEventListener('touchmove', handleMove, { passive: false });
-
-    return () => {
-      canvas.removeEventListener('mousemove', handleMove);
-      canvas.removeEventListener('touchmove', handleMove);
-    };
+    const rect = canvas.getBoundingClientRect();
+    let mouseY = clientY - rect.top;
+    
+    let newY = mouseY - gameDimensions.current.paddleHeight / 2;
+    
+    if (newY < 0) newY = 0;
+    if (newY > gameDimensions.current.height - gameDimensions.current.paddleHeight) {
+      newY = gameDimensions.current.height - gameDimensions.current.paddleHeight;
+    }
+    player.current.y = newY;
   }, []);
 
   return (
@@ -281,6 +276,8 @@ const PingPong: React.FC = () => {
         ref={canvasRef}
         onClick={handleInteractionStart}
         onTouchStart={handleInteractionStart}
+        onMouseMove={handleMove}
+        onTouchMove={handleMove}
         className="bg-gable-green rounded-lg shadow-glow w-full h-full"
       />
     </div>
