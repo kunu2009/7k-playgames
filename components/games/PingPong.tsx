@@ -32,10 +32,11 @@ const PingPong: React.FC = () => {
       paddleHeight: 100,
       ballRadius: 8,
       winningScore: 11,
+      scale: 1,
   });
 
-  const ball = useRef({ x: 0, y: 0, dx: 0, dy: 0 });
-  const player = useRef({ y: 0 });
+  const ball = useRef({ x: 0, y: 0, dx: 0, dy: 0, spinY: 0 });
+  const player = useRef({ y: 0, vy: 0, lastY: 0 });
   const opponent = useRef({ y: 0 });
 
   const updateDimensions = useCallback(() => {
@@ -51,6 +52,7 @@ const PingPong: React.FC = () => {
       paddleHeight: 100 * scale,
       ballRadius: 8 * scale,
       winningScore: 11,
+      scale,
     };
     
     const canvas = canvasRef.current;
@@ -80,7 +82,8 @@ const PingPong: React.FC = () => {
       x: width / 2,
       y: height / 2,
       dx: direction * (width / 200),
-      dy: (Math.random() * (height/80) - (height/160)) 
+      dy: (Math.random() * (height/80) - (height/160)),
+      spinY: 0,
     };
   }, []);
 
@@ -88,6 +91,8 @@ const PingPong: React.FC = () => {
     const { height, paddleHeight } = gameDimensions.current;
     setScore({ player: 0, opponent: 0 });
     player.current.y = height / 2 - paddleHeight / 2;
+    player.current.vy = 0;
+    player.current.lastY = height / 2 - paddleHeight / 2;
     opponent.current.y = height / 2 - paddleHeight / 2;
     gameStatus.current = 'start';
     setMessage('Click or Tap to Start');
@@ -102,16 +107,25 @@ const PingPong: React.FC = () => {
 
     let animationFrameId: number;
     const gameLoop = () => {
-      const { width, height, paddleWidth, paddleHeight, ballRadius } = gameDimensions.current;
+      const { width, height, paddleWidth, paddleHeight, ballRadius, scale } = gameDimensions.current;
       const ctx = canvasRef.current?.getContext('2d');
       if (!ctx) return;
       
+      // Calculate player paddle velocity for spin effect
+      const playerVel = player.current.y - player.current.lastY;
+      player.current.vy = player.current.vy * 0.7 + playerVel * 0.3; // Smoothed velocity
+      player.current.lastY = player.current.y;
+
       if (gameStatus.current === 'playing') {
+        // Apply spin to ball's vertical velocity
+        ball.current.dy += ball.current.spinY;
+        
         ball.current.x += ball.current.dx;
         ball.current.y += ball.current.dy;
 
         if (ball.current.y + ballRadius > height || ball.current.y - ballRadius < 0) {
           ball.current.dy *= -1;
+          ball.current.spinY *= -0.8; // Dampen and reverse spin on wall hit
           sounds.hover();
         }
         
@@ -133,7 +147,19 @@ const PingPong: React.FC = () => {
 
             let collidePoint = (ball.current.y - (p.y + paddleHeight / 2));
             collidePoint = collidePoint / (paddleHeight/2);
-            ball.current.dy = collidePoint * (width / 160);
+            
+            // 1. Enhanced Bounce Angle
+            const maxAngleFactor = width / 120; // Increased sensitivity
+            ball.current.dy = collidePoint * maxAngleFactor;
+
+            // 2. Spin Effect
+            const paddleVy = (p === player.current) ? player.current.vy : 0;
+            const spinFromSpeed = paddleVy * 0.02;
+            const spinFromCollision = collidePoint * 0.03;
+
+            const newSpin = (ball.current.spinY * 0.4) + spinFromSpeed + spinFromCollision;
+            const maxSpin = 0.5 * scale;
+            ball.current.spinY = Math.max(-maxSpin, Math.min(maxSpin, newSpin));
         }
         
         if (ball.current.x - ballRadius < 0) {
@@ -146,12 +172,11 @@ const PingPong: React.FC = () => {
             resetBall(-1);
         }
         
-        // AI Opponent Logic: Make the opponent's paddle track the ball's position.
-        const aiReactionSpeed = 0.1; // A value between 0-1. Higher is faster/harder.
+        // AI Opponent Logic
+        const aiReactionSpeed = 0.1;
         const targetY = ball.current.y - paddleHeight / 2;
         const newOpponentY = opponent.current.y + (targetY - opponent.current.y) * aiReactionSpeed;
         
-        // Ensure the AI paddle stays within the game boundaries.
         opponent.current.y = Math.max(0, Math.min(height - paddleHeight, newOpponentY));
       }
 
@@ -247,22 +272,20 @@ const PingPong: React.FC = () => {
     e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
-    const getClientY = (evt: React.MouseEvent | React.TouchEvent) => {
-        if ('clientY' in evt) {
-            return evt.clientY;
-        }
-        if (evt.touches && evt.touches.length > 0) {
-            return evt.touches[0].clientY;
-        }
-        return null;
+
+    let clientY: number | undefined;
+
+    // Check for touch event first
+    if ('touches' in e && e.touches.length > 0) {
+      clientY = e.touches[0].clientY;
+    } else if ('clientY' in e) { // Then check for mouse event
+      clientY = (e as React.MouseEvent).clientY;
     }
 
-    const clientY = getClientY(e);
-    if (clientY === null) return;
+    if (clientY === undefined) return;
 
     const rect = canvas.getBoundingClientRect();
-    let mouseY = clientY - rect.top;
+    const mouseY = clientY - rect.top;
     
     let newY = mouseY - gameDimensions.current.paddleHeight / 2;
     
