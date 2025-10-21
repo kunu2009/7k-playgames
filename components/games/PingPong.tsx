@@ -41,17 +41,22 @@ const PingPong: React.FC = () => {
 
   const [score, setScore] = useState({ player: 0, opponent: 0 });
   const [message, setMessage] = useState('Click or Tap to Start');
+  const [gameOverMessage, setGameOverMessage] = useState('');
   
   // Refs to hold the latest state for the animation loop to avoid stale closures
   const scoreRef = useRef(score);
   scoreRef.current = score;
   const messageRef = useRef(message);
   messageRef.current = message;
+  const gameOverMessageRef = useRef(gameOverMessage);
+  gameOverMessageRef.current = gameOverMessage;
 
   const gameStatus = useRef<'start' | 'playing' | 'gameOver'>('start');
   const particles = useRef<Particle[]>([]);
   const powerUps = useRef<PowerUp[]>([]);
   const activePowerUps = useRef<ActivePowerUp[]>([]);
+  const restartButtonBounds = useRef<{x: number, y: number, width: number, height: number} | null>(null);
+  const ballTrail = useRef<{x: number, y: number}[]>([]);
   
   const sounds = useSounds(SOUND_EFFECTS);
   
@@ -134,6 +139,7 @@ const PingPong: React.FC = () => {
 
   const resetBall = useCallback((direction: 1 | -1) => {
     const { width, height } = gameDimensions.current;
+    ballTrail.current = [];
     ball.current = {
       x: width / 2,
       y: height / 2,
@@ -155,9 +161,11 @@ const PingPong: React.FC = () => {
     opponent.current.height = paddleHeight;
     gameStatus.current = 'start';
     setMessage('Click or Tap to Start');
+    setGameOverMessage('');
     particles.current = [];
     powerUps.current = [];
     activePowerUps.current = [];
+    ballTrail.current = [];
     resetBall(1);
   }, [resetBall]);
 
@@ -214,6 +222,11 @@ const PingPong: React.FC = () => {
         ball.current.dy += ball.current.spinY;
         ball.current.x += ball.current.dx * ballSpeedMultiplier;
         ball.current.y += ball.current.dy * ballSpeedMultiplier;
+
+        ballTrail.current.unshift({ x: ball.current.x, y: ball.current.y });
+        if (ballTrail.current.length > 7) {
+            ballTrail.current.pop();
+        }
 
         if (ball.current.y + ballRadius > height || ball.current.y - ballRadius < 0) {
           ball.current.dy *= -1;
@@ -292,6 +305,27 @@ const PingPong: React.FC = () => {
       ctx.fillRect(0, player.current.y, paddleWidth, player.current.height);
       ctx.fillRect(width - paddleWidth, opponent.current.y, paddleWidth, opponent.current.height);
 
+      // Draw ball trail
+      ballTrail.current.forEach((pos, index) => {
+        const progress = index / ballTrail.current.length;
+        const opacity = (1 - progress) * 0.6;
+        const radius = ballRadius * (1 - progress) * 0.8;
+        if (radius < 1) return;
+
+        const spinIntensity = Math.min(1, Math.abs(ball.current.spinY) / (0.5 * scale));
+        let trailColor = `rgba(54, 215, 183, ${opacity * 0.5})`; // Default trail
+        if (ball.current.spinY > 0.1) { // Downward spin (backspin) -> Reddish
+            trailColor = `rgba(255, 99, 71, ${opacity * spinIntensity})`;
+        } else if (ball.current.spinY < -0.1) { // Upward spin (topspin) -> Bluish
+            trailColor = `rgba(135, 206, 235, ${opacity * spinIntensity})`;
+        }
+        
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = trailColor;
+        ctx.fill();
+      });
+
       const ballGlow = 10 + Math.abs(ball.current.dx);
       ctx.shadowBlur = ballGlow;
       ctx.beginPath(); ctx.arc(ball.current.x, ball.current.y, ballRadius, 0, Math.PI * 2);
@@ -320,15 +354,51 @@ const PingPong: React.FC = () => {
           if(p.target === 'opponent') ctx.fillText(p.type, (width / 4)*3, height/8 + height/16);
       });
 
-      if (gameStatus.current !== 'playing') {
-        ctx.fillStyle = 'rgba(19, 38, 47, 0.7)'; ctx.fillRect(0,0,width,height);
-        ctx.font = `${width/20}px Poppins`; ctx.fillStyle = 'rgba(211, 208, 203, 0.8)';
+      if (gameStatus.current === 'gameOver') {
+        ctx.fillStyle = 'rgba(19, 38, 47, 0.8)';
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.font = `bold ${width / 15}px Orbitron`;
+        ctx.fillStyle = '#d3d0cb';
         ctx.textAlign = 'center';
-        ctx.fillText(messageRef.current, width / 2, height / 2 - (height/10));
-        if (gameStatus.current === 'gameOver') {
-            ctx.font = `${width/40}px Poppins`;
-            ctx.fillText('Click or Tap to play again', width / 2, height / 2);
-        }
+        ctx.fillText('Game Over', width / 2, height / 2 - height / 6);
+
+        ctx.font = `${width / 25}px Poppins`;
+        ctx.fillText(
+            `Final Score: ${scoreRef.current.player} - ${scoreRef.current.opponent}`,
+            width / 2,
+            height / 2 - height / 12
+        );
+        
+        ctx.font = `bold ${width / 20}px Poppins`;
+        ctx.fillStyle = gameOverMessageRef.current === 'You Win!' ? '#36d7b7' : '#ff6347';
+        ctx.fillText(gameOverMessageRef.current, width / 2, height / 2 + height / 20);
+
+        const buttonWidth = width / 3.5;
+        const buttonHeight = height / 9;
+        const buttonX = width / 2 - buttonWidth / 2;
+        const buttonY = height / 2 + height / 7;
+        
+        restartButtonBounds.current = { x: buttonX, y: buttonY, width: buttonWidth, height: buttonHeight };
+
+        ctx.fillStyle = '#366e8d';
+        ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+        
+        ctx.strokeStyle = '#8da3b0';
+        ctx.lineWidth = 2 * scale;
+        ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
+
+        ctx.font = `bold ${width / 30}px Poppins`;
+        ctx.fillStyle = '#d3d0cb';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Restart', width / 2, buttonY + buttonHeight / 2);
+        ctx.textBaseline = 'alphabetic';
+      } else if (gameStatus.current === 'start') {
+          ctx.fillStyle = 'rgba(19, 38, 47, 0.7)'; ctx.fillRect(0,0,width,height);
+          ctx.font = `${width/20}px Poppins`; ctx.fillStyle = 'rgba(211, 208, 203, 0.8)';
+          ctx.textAlign = 'center';
+          ctx.fillText(messageRef.current, width / 2, height / 2 - (height/10));
       }
       
       animationFrameId = requestAnimationFrame(gameLoop);
@@ -344,12 +414,16 @@ const PingPong: React.FC = () => {
   }, [updateDimensions, resetGame, sounds, createParticles, spawnPowerUp]); // The dependency array is now safe.
 
   useEffect(() => {
+    if (gameStatus.current !== 'playing') return;
+    
     if (score.player === gameDimensions.current.winningScore) {
         gameStatus.current = 'gameOver';
-        setMessage('You Win!');
+        setMessage('Game Over');
+        setGameOverMessage('You Win!');
     } else if (score.opponent === gameDimensions.current.winningScore) {
         gameStatus.current = 'gameOver';
-        setMessage('AI Wins!');
+        setMessage('Game Over');
+        setGameOverMessage('AI Wins!');
     }
   }, [score]);
 
@@ -357,8 +431,22 @@ const PingPong: React.FC = () => {
     e.preventDefault();
     if (gameStatus.current === 'start') {
         gameStatus.current = 'playing';
+        setMessage('');
     } else if (gameStatus.current === 'gameOver') {
-        resetGame();
+        const canvas = canvasRef.current;
+        if (!canvas || !restartButtonBounds.current) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+
+        const { x: btnX, y: btnY, width: btnW, height: btnH } = restartButtonBounds.current;
+
+        if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
+            resetGame();
+        }
     }
   }, [resetGame]);
 
