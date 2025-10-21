@@ -2,6 +2,7 @@ import React from 'react';
 import { Game } from '../types';
 import ParticleBackground from './ParticleBackground';
 import PingPong from './games/PingPong';
+import PixelRunner from './games/PixelRunner'; // Import the new game
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 
 interface GameContainerProps {
@@ -14,6 +15,8 @@ const GameContainer: React.FC<GameContainerProps> = ({ game, onExit }) => {
     switch (game.id) {
       case 'ping-pong':
         return <PingPong />;
+      case 'pixel-runner': // Add the case for Pixel Runner
+        return <PixelRunner />;
       // Add other game components here
       default:
         return (
