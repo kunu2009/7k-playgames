@@ -15,7 +15,7 @@ const GameModal: React.FC<GameModalProps> = ({ game, onClose, onPlay }) => {
       onClick={onClose}
     >
       <div 
-        className="bg-gradient-to-br from-chathams-blue to-gable-green rounded-2xl w-full max-w-md lg:max-w-3xl max-h-[90vh] overflow-y-auto shadow-neon-teal border border-calypso relative animate-fade-in"
+        className="bg-gradient-to-br from-chathams-blue to-gable-green rounded-2xl w-full max-w-md lg:max-w-3xl max-h-[90vh] overflow-y-auto shadow-neon-teal border border-calypso relative animate-modal-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         <button 

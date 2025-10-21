@@ -165,7 +165,7 @@ const MindMerge: React.FC = () => {
     setGameState('start');
   }, [initializeBoard]);
 
-  const handleInput = useCallback((e: MouseEvent | TouchEvent) => {
+  const handleInput = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     if (gameState === 'start') {
       setGameState('playing');
@@ -318,20 +318,14 @@ const MindMerge: React.FC = () => {
     };
   }, [gameState, score, timeLeft, updateConstants, resetGame, findPath]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    canvas.addEventListener('click', handleInput);
-    canvas.addEventListener('touchstart', handleInput, { passive: false });
-    return () => {
-      canvas.removeEventListener('click', handleInput);
-      canvas.removeEventListener('touchstart', handleInput);
-    };
-  }, [handleInput]);
-
   return (
     <div ref={containerRef} className="w-full h-full cursor-pointer">
-      <canvas ref={canvasRef} className="bg-gable-green rounded-lg shadow-glow w-full h-full" />
+      <canvas 
+        ref={canvasRef} 
+        className="bg-gable-green rounded-lg shadow-glow w-full h-full" 
+        onClick={handleInput}
+        onTouchStart={handleInput}
+      />
     </div>
   );
 };

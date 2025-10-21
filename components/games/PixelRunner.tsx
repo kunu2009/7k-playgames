@@ -92,6 +92,11 @@ const PixelRunner: React.FC = () => {
       resetGame();
     }
   }, [gameState, resetGame]);
+
+  const handleCanvasInteraction = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    handleInput();
+  }, [handleInput]);
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -100,20 +105,9 @@ const PixelRunner: React.FC = () => {
         handleInput();
       }
     };
-    const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
-      handleInput();
-    };
-    const handleClick = () => handleInput();
-
     window.addEventListener('keydown', handleKeyDown);
-    const canvas = canvasRef.current;
-    canvas?.addEventListener('click', handleClick);
-    canvas?.addEventListener('touchstart', handleTouchStart, { passive: false });
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      canvas?.removeEventListener('click', handleClick);
-      canvas?.removeEventListener('touchstart', handleTouchStart);
     };
   }, [handleInput]);
   
@@ -275,6 +269,8 @@ const PixelRunner: React.FC = () => {
     <div ref={containerRef} className="w-full h-full cursor-pointer">
        <canvas
         ref={canvasRef}
+        onClick={handleCanvasInteraction}
+        onTouchStart={handleCanvasInteraction}
         className="bg-gable-green rounded-lg shadow-glow w-full h-full"
       />
     </div>

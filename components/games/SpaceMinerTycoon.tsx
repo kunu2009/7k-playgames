@@ -46,8 +46,8 @@ const RESOURCE_DATA: Record<ResourceType, { color: string; value: number; health
 };
 
 const UPGRADE_DATA: Record<UpgradeType, { name: string; baseCost: number; description: (level: number) => string; }> = {
-  laser: { name: 'Laser Power', baseCost: 25, description: level => `+${level} damage per click` },
-  drone: { name: 'Mining Drone', baseCost: 100, description: level => `${(level * 0.5).toFixed(1)} auto-damage/sec` },
+  laser: { name: 'Laser Power', baseCost: 25, description: level => `Mines for ${5 * level} damage per click.` },
+  drone: { name: 'Mining Drone', baseCost: 100, description: level => `${(level * 2.5).toFixed(1)} auto-damage/sec` },
   cargo: { name: 'Cargo Hold', baseCost: 50, description: level => `${50 + level * 25} max capacity` },
   scanner: { name: 'Geo Scanner', baseCost: 500, description: level => `+${level}% rare asteroid chance` },
 };
@@ -157,7 +157,7 @@ const SpaceMinerTycoon: React.FC = () => {
     for (const asteroid of asteroids.current) {
       const dist = Math.hypot(x - asteroid.x, y - asteroid.y);
       if (dist < asteroid.size) {
-        handleMine(asteroid, upgrades.laser);
+        handleMine(asteroid, 5 * upgrades.laser);
         break;
       }
     }
@@ -195,7 +195,7 @@ const SpaceMinerTycoon: React.FC = () => {
       // Update logic
       if (Math.random() < 0.01) spawnAsteroid(); // Spawn new asteroids
       if (upgrades.drone > 0 && asteroids.current.length > 0) {
-        handleMine(asteroids.current[0], upgrades.drone * 0.5 * (deltaTime / 1000));
+        handleMine(asteroids.current[0], upgrades.drone * 2.5 * (deltaTime / 1000));
       }
 
       stars.current.forEach(s => { s.x -= s.size * 0.1; if(s.x < 0) {s.x = width; s.y = Math.random() * height;} });

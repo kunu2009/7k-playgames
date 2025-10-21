@@ -173,6 +173,15 @@ const PingPong: React.FC = () => {
     }
   }, [score]);
 
+  const handleInteractionStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (gameStatus.current === 'start') {
+        gameStatus.current = 'playing';
+        setMessage('');
+    } else if (gameStatus.current === 'gameOver') {
+        resetGame();
+    }
+  }, [resetGame]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -199,33 +208,21 @@ const PingPong: React.FC = () => {
       }
     };
 
-    const handleInteractionStart = (e: MouseEvent | TouchEvent) => {
-        e.preventDefault();
-        if (gameStatus.current === 'start') {
-            gameStatus.current = 'playing';
-            setMessage('');
-        } else if (gameStatus.current === 'gameOver') {
-            resetGame();
-        }
-    }
-
     canvas.addEventListener('mousemove', handleMove);
     canvas.addEventListener('touchmove', handleMove, { passive: false });
-    canvas.addEventListener('click', handleInteractionStart);
-    canvas.addEventListener('touchstart', handleInteractionStart, { passive: false });
 
     return () => {
       canvas.removeEventListener('mousemove', handleMove);
       canvas.removeEventListener('touchmove', handleMove);
-      canvas.removeEventListener('click', handleInteractionStart);
-      canvas.removeEventListener('touchstart', handleInteractionStart);
     };
-  }, [resetGame]);
+  }, []);
 
   return (
     <div ref={containerRef} className="w-full h-full cursor-pointer">
        <canvas
         ref={canvasRef}
+        onClick={handleInteractionStart}
+        onTouchStart={handleInteractionStart}
         className="bg-gable-green rounded-lg shadow-glow w-full h-full"
       />
     </div>

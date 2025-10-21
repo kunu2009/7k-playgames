@@ -12,4 +12,5 @@ export interface Game {
   type: GameType;
   description: string;
   coverArt: string;
+  controls?: string;
 }

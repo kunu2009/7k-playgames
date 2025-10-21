@@ -11,6 +11,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.SOLO,
     description: 'A classic retro paddle-and-ball duel with ever-increasing speed. Test your reflexes and see how long you can last!',
     coverArt: 'https://picsum.photos/seed/pingpong/600/800',
+    controls: 'Mouse / Touch to move paddle.',
   },
   {
     id: 'pixel-runner',
@@ -20,6 +21,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.SOLO,
     description: 'An endless side-scroller where you must dodge obstacles and collect glowing orbs. Unlock new skins and environments as you achieve higher scores.',
     coverArt: 'https://picsum.photos/seed/pixelrunner/600/800',
+    controls: 'Spacebar / Tap to jump.',
   },
   {
     id: 'mind-merge',
@@ -29,6 +31,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.SOLO,
     description: 'A fast-paced puzzle game. Connect logic nodes or matching symbols before the time runs out. How fast can your brain work?',
     coverArt: 'https://picsum.photos/seed/mindmerge/600/800',
+    controls: 'Click / Tap matching nodes to connect them.',
   },
   {
     id: '7k-chess-blitz',
@@ -38,6 +41,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.SOLO,
     description: 'Experience chess like never before! A one-minute blitz with game-changing power-ups like Undo, Double Move, or Freeze Opponent.',
     coverArt: 'https://picsum.photos/seed/chessblitz/600/800',
+    controls: 'Click to move pieces. Use UI buttons for power-ups.',
   },
   {
     id: 'city-builder-lite',
@@ -47,6 +51,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.SOLO,
     description: 'Become the mayor of your own small island town. Balance happiness, power, and the economy to create a thriving community.',
     coverArt: 'https://picsum.photos/seed/citybuilder/600/800',
+    controls: 'Click the Build button and select a building to place it on the grid.',
   },
   {
     id: 'space-miner-tycoon',
@@ -56,6 +61,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.SOLO,
     description: 'Tap or drag to mine valuable asteroids, upgrade your fleet of ships, and sell rare materials to become a galactic tycoon.',
     coverArt: 'https://picsum.photos/seed/spaceminer/600/800',
+    controls: 'Click/Tap asteroids to mine. Use UI buttons to sell and upgrade.',
   },
   {
     id: 'memory-vault',
@@ -129,6 +135,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.MULTIPLAYER,
     description: 'You\'re trapped! Work together with your friends, using unique character abilities, to navigate and escape a trap-filled maze.',
     coverArt: 'https://picsum.photos/seed/mazeescape/600/800',
+    controls: 'P1: WASD+Space | P2: Arrows+Enter | Mobile: On-screen controls.',
   },
   {
     id: 'last-square-standing',
