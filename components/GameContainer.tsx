@@ -2,7 +2,9 @@ import React from 'react';
 import { Game } from '../types';
 import ParticleBackground from './ParticleBackground';
 import PingPong from './games/PingPong';
-import PixelRunner from './games/PixelRunner'; // Import the new game
+import PixelRunner from './games/PixelRunner';
+import MindMerge from './games/MindMerge';
+import ChessBlitz from './games/ChessBlitz'; // Import the new game
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 
 interface GameContainerProps {
@@ -15,9 +17,12 @@ const GameContainer: React.FC<GameContainerProps> = ({ game, onExit }) => {
     switch (game.id) {
       case 'ping-pong':
         return <PingPong />;
-      case 'pixel-runner': // Add the case for Pixel Runner
+      case 'pixel-runner':
         return <PixelRunner />;
-      // Add other game components here
+      case 'mind-merge':
+        return <MindMerge />;
+      case '7k-chess-blitz': // Add the case for Chess Blitz
+        return <ChessBlitz />;
       default:
         return (
           <div className="text-center">
@@ -29,7 +34,7 @@ const GameContainer: React.FC<GameContainerProps> = ({ game, onExit }) => {
   };
 
   return (
-    <div className="bg-gradient-to-b from-gable-green to-chathams-blue min-h-screen font-poppins text-timberwolf overflow-hidden relative flex flex-col items-center justify-center">
+    <div className="bg-gradient-to-b from-gable-green to-chathams-blue min-h-screen font-poppins text-timberwolf overflow-hidden relative flex flex-col items-center justify-center p-4">
       <ParticleBackground />
       <div className="absolute top-4 left-4 z-20">
         <button 
@@ -40,7 +45,7 @@ const GameContainer: React.FC<GameContainerProps> = ({ game, onExit }) => {
           <span>Back to Hub</span>
         </button>
       </div>
-      <div className="relative z-10 w-full h-full flex items-center justify-center">
+      <div className="relative z-10 w-full max-w-[90vw] md:max-w-4xl lg:max-w-5xl xl:max-w-6xl flex items-center justify-center">
         {renderGame()}
       </div>
     </div>

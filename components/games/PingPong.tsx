@@ -1,180 +1,173 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 
-const PADDLE_WIDTH = 10;
-const PADDLE_HEIGHT = 100;
-const BALL_RADIUS = 8;
-const WINNING_SCORE = 5;
+const ASPECT_RATIO = 800 / 500;
 
 const PingPong: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const [score, setScore] = useState({ player: 0, opponent: 0 });
-  const [message, setMessage] = useState('Click to Start');
+  const [message, setMessage] = useState('Click or Tap to Start');
   
   const gameStatus = useRef<'start' | 'playing' | 'gameOver'>('start');
   
-  // Use refs for game objects to avoid re-renders inside the game loop
+  // Game dimensions based on canvas size
+  const gameDimensions = useRef({
+      width: 800,
+      height: 500,
+      paddleWidth: 10,
+      paddleHeight: 100,
+      ballRadius: 8,
+      winningScore: 5,
+  });
+
+  // Game objects with relative positions
   const ball = useRef({ x: 0, y: 0, dx: 0, dy: 0 });
   const player = useRef({ y: 0 });
   const opponent = useRef({ y: 0 });
 
-  const resetBall = useCallback((direction: 1 | -1) => {
+  const updateDimensions = useCallback(() => {
+    if(!containerRef.current) return;
+    const { width } = containerRef.current.getBoundingClientRect();
+    const height = width / ASPECT_RATIO;
+    const scale = width / 800; // Original width was 800
+
+    gameDimensions.current = {
+      width,
+      height,
+      paddleWidth: 10 * scale,
+      paddleHeight: 100 * scale,
+      ballRadius: 8 * scale,
+      winningScore: 5,
+    };
+    
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (canvas) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+  }, []);
+  
+  const resetBall = useCallback((direction: 1 | -1) => {
+    const { width, height } = gameDimensions.current;
     ball.current = {
-      x: canvas.width / 2,
-      y: canvas.height / 2,
-      dx: direction * 5,
-      dy: (Math.random() * 6 - 3) 
+      x: width / 2,
+      y: height / 2,
+      dx: direction * (width / 160), // Scaled speed
+      dy: (Math.random() * (height/80) - (height/160)) 
     };
   }, []);
 
   const resetGame = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const { height, paddleHeight } = gameDimensions.current;
     setScore({ player: 0, opponent: 0 });
-    player.current.y = canvas.height / 2 - PADDLE_HEIGHT / 2;
-    opponent.current.y = canvas.height / 2 - PADDLE_HEIGHT / 2;
+    player.current.y = height / 2 - paddleHeight / 2;
+    opponent.current.y = height / 2 - paddleHeight / 2;
     gameStatus.current = 'start';
-    setMessage('Click to Start');
+    setMessage('Click or Tap to Start');
     resetBall(1);
   }, [resetBall]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    window.addEventListener('resize', updateDimensions);
+    updateDimensions();
+    resetGame();
 
-    // Set initial positions
-    player.current.y = canvas.height / 2 - PADDLE_HEIGHT / 2;
-    opponent.current.y = canvas.height / 2 - PADDLE_HEIGHT / 2;
-    resetBall(1);
-    
-    let animationFrameId: number;
-
-    const draw = () => {
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      // Clear canvas
-      ctx.fillStyle = '#13262f'; // Gable Green
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Draw paddles
-      ctx.fillStyle = '#d3d0cb'; // Timberwolf
-      ctx.shadowColor = '#36d7b7';
-      ctx.shadowBlur = 10;
-      ctx.fillRect(0, player.current.y, PADDLE_WIDTH, PADDLE_HEIGHT);
-      ctx.fillRect(canvas.width - PADDLE_WIDTH, opponent.current.y, PADDLE_WIDTH, PADDLE_HEIGHT);
-
-      // Draw ball
-      ctx.beginPath();
-      ctx.arc(ball.current.x, ball.current.y, BALL_RADIUS, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      // Draw net
-      ctx.strokeStyle = '#828f9a'; // Regent Gray
-      ctx.setLineDash([10, 10]);
-      ctx.beginPath();
-      ctx.moveTo(canvas.width / 2, 0);
-      ctx.lineTo(canvas.width / 2, canvas.height);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Draw scores
-      ctx.font = '700 48px Orbitron';
-      ctx.fillText(score.player.toString(), canvas.width / 4, 60);
-      ctx.fillText(score.opponent.toString(), (canvas.width / 4) * 3, 60);
-
-      // Draw message
-      if (gameStatus.current !== 'playing') {
-        ctx.font = '40px Poppins';
-        ctx.fillStyle = 'rgba(211, 208, 203, 0.8)';
-        ctx.textAlign = 'center';
-        ctx.fillText(message, canvas.width / 2, canvas.height / 2 - 50);
-        if (gameStatus.current === 'gameOver') {
-            ctx.font = '20px Poppins';
-            ctx.fillText('Click to play again', canvas.width / 2, canvas.height / 2);
-        }
-        ctx.textAlign = 'left';
-      }
-
-      animationFrameId = requestAnimationFrame(draw);
-    };
-
-    draw();
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [score, message, resetBall]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    let animationFrameId: number;
-    
     const gameLoop = () => {
+      const { width, height, paddleWidth, paddleHeight, ballRadius, winningScore } = gameDimensions.current;
+      const ctx = canvasRef.current?.getContext('2d');
+      if (!ctx) return;
+      
+      // Update logic for 'playing' state
       if (gameStatus.current === 'playing') {
-        // Ball movement
         ball.current.x += ball.current.dx;
         ball.current.y += ball.current.dy;
 
-        // Ball collision with top/bottom walls
-        if (ball.current.y + BALL_RADIUS > canvas.height || ball.current.y - BALL_RADIUS < 0) {
+        if (ball.current.y + ballRadius > height || ball.current.y - ballRadius < 0) {
           ball.current.dy *= -1;
         }
 
-        // Ball collision with paddles
-        let p = ball.current.x < canvas.width / 2 ? player.current : opponent.current;
+        let p = ball.current.x < width / 2 ? player.current : opponent.current;
         if (
-          (ball.current.x - BALL_RADIUS < PADDLE_WIDTH && ball.current.dx < 0) ||
-          (ball.current.x + BALL_RADIUS > canvas.width - PADDLE_WIDTH && ball.current.dx > 0)
+          (ball.current.x - ballRadius < paddleWidth && ball.current.dx < 0) ||
+          (ball.current.x + ballRadius > width - paddleWidth && ball.current.dx > 0)
         ) {
-          if (ball.current.y > p.y && ball.current.y < p.y + PADDLE_HEIGHT) {
-            ball.current.dx *= -1.1; // Increase speed
-            // Change angle based on where it hits the paddle
-            let collidePoint = (ball.current.y - (p.y + PADDLE_HEIGHT / 2));
-            collidePoint = collidePoint / (PADDLE_HEIGHT/2);
-            ball.current.dy = collidePoint * 5;
+          if (ball.current.y > p.y && ball.current.y < p.y + paddleHeight) {
+            ball.current.dx *= -1.1;
+            let collidePoint = (ball.current.y - (p.y + paddleHeight / 2));
+            collidePoint = collidePoint / (paddleHeight/2);
+            ball.current.dy = collidePoint * (width / 160);
           }
         }
         
-        // Scoring
-        if (ball.current.x - BALL_RADIUS < 0) {
+        if (ball.current.x - ballRadius < 0) {
             setScore(s => ({ ...s, opponent: s.opponent + 1 }));
             resetBall(1);
-        } else if (ball.current.x + BALL_RADIUS > canvas.width) {
+        } else if (ball.current.x + ballRadius > width) {
             setScore(s => ({ ...s, player: s.player + 1 }));
             resetBall(-1);
         }
-
-        // AI opponent movement
-        const opponentCenter = opponent.current.y + PADDLE_HEIGHT / 2;
-        if (opponentCenter < ball.current.y - 35) {
-          opponent.current.y += 6;
-        } else if (opponentCenter > ball.current.y + 35) {
-          opponent.current.y -= 6;
+        
+        const opponentCenter = opponent.current.y + paddleHeight / 2;
+        const aiSpeed = height / 83.33; // Scaled speed
+        if (opponentCenter < ball.current.y - (height/14)) {
+          opponent.current.y += aiSpeed;
+        } else if (opponentCenter > ball.current.y + (height/14)) {
+          opponent.current.y -= aiSpeed;
         }
       }
 
+      // Drawing logic (always runs)
+      ctx.clearRect(0,0,width,height);
+      ctx.fillStyle = '#13262f';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#d3d0cb';
+      ctx.shadowColor = '#36d7b7';
+      ctx.shadowBlur = 10;
+      ctx.fillRect(0, player.current.y, paddleWidth, paddleHeight);
+      ctx.fillRect(width - paddleWidth, opponent.current.y, paddleWidth, paddleHeight);
+      ctx.beginPath();
+      ctx.arc(ball.current.x, ball.current.y, ballRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#828f9a';
+      ctx.setLineDash([height/50, height/50]);
+      ctx.beginPath();
+      ctx.moveTo(width / 2, 0);
+      ctx.lineTo(width / 2, height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = `700 ${width/16.6}px Orbitron`;
+      ctx.fillText(score.player.toString(), width / 4, height/8);
+      ctx.fillText(score.opponent.toString(), (width / 4) * 3, height/8);
+      if (gameStatus.current !== 'playing') {
+        ctx.font = `${width/20}px Poppins`;
+        ctx.fillStyle = 'rgba(211, 208, 203, 0.8)';
+        ctx.textAlign = 'center';
+        ctx.fillText(message, width / 2, height / 2 - (height/10));
+        if (gameStatus.current === 'gameOver') {
+            ctx.font = `${width/40}px Poppins`;
+            ctx.fillText('Click or Tap to play again', width / 2, height / 2);
+        }
+        ctx.textAlign = 'left';
+      }
+      
       animationFrameId = requestAnimationFrame(gameLoop);
     };
-    
-    gameLoop();
-    
+
+    let animationFrameId = requestAnimationFrame(gameLoop);
+
     return () => {
-        cancelAnimationFrame(animationFrameId);
-    }
-
-  }, [resetBall]);
-
+      window.removeEventListener('resize', updateDimensions);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [updateDimensions, resetGame, resetBall, message, score]);
 
   useEffect(() => {
-    if (score.player === WINNING_SCORE) {
+    if (score.player === gameDimensions.current.winningScore) {
         gameStatus.current = 'gameOver';
         setMessage('You Win!');
-    } else if (score.opponent === WINNING_SCORE) {
+    } else if (score.opponent === gameDimensions.current.winningScore) {
         gameStatus.current = 'gameOver';
         setMessage('AI Wins!');
     }
@@ -185,18 +178,28 @@ const PingPong: React.FC = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const getClientY = (e: MouseEvent | TouchEvent) => {
+        if (e instanceof MouseEvent) return e.clientY;
+        if (e.touches && e.touches.length > 0) return e.touches[0].clientY;
+        return null;
+    }
+
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      e.preventDefault();
+      const clientY = getClientY(e);
+      if (clientY === null) return;
+
       const rect = canvas.getBoundingClientRect();
-      let root = document.documentElement;
-      let mouseY = e.clientY - rect.top - root.scrollTop;
-      player.current.y = mouseY - PADDLE_HEIGHT / 2;
+      let mouseY = clientY - rect.top;
+      player.current.y = mouseY - gameDimensions.current.paddleHeight / 2;
       
-      // Keep paddle in bounds
       if (player.current.y < 0) player.current.y = 0;
-      if (player.current.y > canvas.height - PADDLE_HEIGHT) player.current.y = canvas.height - PADDLE_HEIGHT;
+      if (player.current.y > gameDimensions.current.height - gameDimensions.current.paddleHeight) {
+        player.current.y = gameDimensions.current.height - gameDimensions.current.paddleHeight;
+      }
     };
 
-    const handleClick = () => {
+    const handleInteractionStart = () => {
         if (gameStatus.current === 'start') {
             gameStatus.current = 'playing';
             setMessage('');
@@ -205,22 +208,26 @@ const PingPong: React.FC = () => {
         }
     }
 
-    canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('click', handleClick);
+    canvas.addEventListener('mousemove', handleMove);
+    canvas.addEventListener('touchmove', handleMove, { passive: false });
+    canvas.addEventListener('click', handleInteractionStart);
+    canvas.addEventListener('touchstart', handleInteractionStart);
 
     return () => {
-      canvas.removeEventListener('mousemove', handleMouseMove);
-      canvas.removeEventListener('click', handleClick);
+      canvas.removeEventListener('mousemove', handleMove);
+      canvas.removeEventListener('touchmove', handleMove);
+      canvas.removeEventListener('click', handleInteractionStart);
+      canvas.removeEventListener('touchstart', handleInteractionStart);
     };
   }, [resetGame]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={800}
-      height={500}
-      className="bg-gable-green rounded-lg shadow-glow"
-    />
+    <div ref={containerRef} className="w-full h-full cursor-pointer">
+       <canvas
+        ref={canvasRef}
+        className="bg-gable-green rounded-lg shadow-glow w-full h-full"
+      />
+    </div>
   );
 };
 
