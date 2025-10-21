@@ -71,6 +71,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.SOLO,
     description: 'Test your memory by recalling sequences of symbols, sounds, or words that get progressively faster and more complex.',
     coverArt: 'https://picsum.photos/seed/memoryvault/600/800',
+    controls: 'Click/Tap the sequence tiles in the correct order.',
   },
   {
     id: 'shadow-duel',
@@ -80,6 +81,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.SOLO,
     description: 'Enter the sword-fighting arena against a skilled AI. Master timing-based parries and strikes to claim victory.',
     coverArt: 'https://picsum.photos/seed/shadowduel/600/800',
+    controls: 'Click/Tap buttons for Parry and Strike at the right moment.',
   },
   // Multiplayer Games
   {
@@ -90,6 +92,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.MULTIPLAYER,
     description: 'Team up to take down a massive boss! Each player taps their zone to attack. Grab random power-ups for crucial boosts.',
     coverArt: 'https://picsum.photos/seed/taptitans/600/800',
+    controls: 'Each player taps their designated corner of the screen.',
   },
   {
     id: 'dodge-circle',
@@ -99,6 +102,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.MULTIPLAYER,
     description: 'Control tiny dots that circle a field of dangerous obstacles. Deftly navigate the chaos. The last player to crash wins!',
     coverArt: 'https://picsum.photos/seed/dodgecircle/600/800',
+    controls: 'Single key per player to switch direction (e.g., A, L, Q, P).',
   },
   {
     id: 'tank-royale',
@@ -108,6 +112,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.MULTIPLAYER,
     description: 'A frantic top-down tank battle. Bounce bullets off walls, use cover, and outlast your opponents in this chaotic arena.',
     coverArt: 'https://picsum.photos/seed/tankroyale/600/800',
+    controls: 'P1: WASD+Space | P2: Arrows+Enter.',
   },
   {
     id: 'tug-of-tap',
@@ -117,6 +122,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.MULTIPLAYER,
     description: 'A simple yet intense two-player showdown. Tap your side as fast as you can to pull the rope to your victory line. Surprise power zones add a twist!',
     coverArt: 'https://picsum.photos/seed/tugoftap/600/800',
+    controls: 'P1 taps the left half of the screen, P2 taps the right.',
   },
   {
     id: 'food-frenzy',
@@ -126,6 +132,7 @@ export const ALL_GAMES: Game[] = [
     type: GameType.MULTIPLAYER,
     description: 'It\'s a chaotic feast! Catch falling food that matches your plate color. Steal from your friends to rack up extra points and secure the win.',
     coverArt: 'https://picsum.photos/seed/foodfrenzy/600/800',
+    controls: 'P1: A/D | P2: J/L | P3: Left/Right Arrow.',
   },
   {
     id: 'maze-escape',
@@ -145,5 +152,6 @@ export const ALL_GAMES: Game[] = [
     type: GameType.MULTIPLAYER,
     description: 'The floor is disappearing! Move across a vanishing grid and try to push your opponents off. Be the last one standing to win.',
     coverArt: 'https://picsum.photos/seed/lastsquare/600/800',
+    controls: 'P1: WASD | P2: Arrows. Push your opponent!',
   },
 ];

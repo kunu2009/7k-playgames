@@ -1,4 +1,7 @@
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useSounds } from '../../hooks/useSounds';
+import { SOUND_EFFECTS } from '../../utils/sounds';
 
 // --- CONSTANTS ---
 const ASPECT_RATIO = 1.6;
@@ -78,6 +81,8 @@ const MazeEscape: React.FC = () => {
   const [gameState, setGameState] = useState<'start' | 'playing' | 'win' | 'lose'>('start');
   const [maze, setMaze] = useState<Tile[][]>([]);
   const players = useRef<Player[]>([]);
+  const sounds = useSounds(SOUND_EFFECTS);
+  const screenShake = useRef(0);
 
   const c = useRef({ width: 1280, height: 800, scale: 1, cellSize: 0, gridX: 0, gridY: 0 });
   const lastMoveTime = useRef([0, 0]);
@@ -164,11 +169,12 @@ const MazeEscape: React.FC = () => {
     const isOccupied = newX === otherPlayer.x && newY === otherPlayer.y;
 
     if (isPassable && !isOccupied) {
+      sounds.hover();
       p.x = newX;
       p.y = newY;
       lastMoveTime.current[playerIndex] = now;
     }
-  }, [gameState, maze]);
+  }, [gameState, maze, sounds]);
 
   const useAbility = useCallback((playerIndex: number) => {
     if (gameState !== 'playing' || !maze.length) return;
@@ -182,17 +188,19 @@ const MazeEscape: React.FC = () => {
         
         const targetTile = maze[ay][ax];
         if (playerIndex === 0 && targetTile === Tile.LASER_ON) { // Engineer
+            sounds.filter();
             maze[ay][ax] = Tile.LASER_OFF;
             p.abilityCooldown = now + 3000;
             setTimeout(() => { if (maze[ay][ax] === Tile.LASER_OFF) maze[ay][ax] = Tile.LASER_ON; }, 5000);
             break;
         } else if (playerIndex === 1 && targetTile === Tile.CRACKED_WALL) { // Brute
+            sounds.click();
             maze[ay][ax] = Tile.FLOOR;
             p.abilityCooldown = now + 1000;
             break;
         }
     }
-  }, [gameState, maze]);
+  }, [gameState, maze, sounds]);
   
   useEffect(() => {
     isMobile.current = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -204,8 +212,8 @@ const MazeEscape: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-        if(gameState === 'start') { setGameState('playing'); return; }
-        if(gameState !== 'playing') { resetGame(); return; }
+        if(gameState === 'start') { sounds.click(); setGameState('playing'); return; }
+        if(gameState !== 'playing') { sounds.click(); resetGame(); return; }
 
         if (e.key === 'w') movePlayer(0, 0, -1);
         else if (e.key === 's') movePlayer(0, 0, 1);
@@ -220,7 +228,7 @@ const MazeEscape: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, movePlayer, useAbility, resetGame]);
+  }, [gameState, movePlayer, useAbility, resetGame, sounds]);
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext('2d');
@@ -232,13 +240,21 @@ const MazeEscape: React.FC = () => {
       [Tile.START]: '#d3d0cb', [Tile.EXIT]: '#f0e68c',
       [Tile.CRACKED_WALL]: '#3a4a52', [Tile.LASER_ON]: '#ff6347',
       [Tile.LASER_OFF]: '#17557b', [Tile.SPIKE_TRAP_OFF]: '#17557b',
-      [Tile.SPIKE_TRAP_ON]: '#regent-gray',
+      [Tile.SPIKE_TRAP_ON]: '#828f9a',
     };
 
     const draw = (time: number) => {
       const { width, height, scale, cellSize, gridX, gridY } = c.current;
       ctx.clearRect(0,0,width,height);
       ctx.fillStyle = '#0a141a'; ctx.fillRect(0,0,width,height);
+      
+      if(screenShake.current > 0) {
+        ctx.save();
+        const dx = (Math.random() - 0.5) * screenShake.current;
+        const dy = (Math.random() - 0.5) * screenShake.current;
+        ctx.translate(dx, dy);
+        screenShake.current *= 0.9;
+      }
       
       // Game logic
       if (gameState === 'playing') {
@@ -251,6 +267,8 @@ const MazeEscape: React.FC = () => {
           players.current.forEach(p => {
               const tile = maze[p.y][p.x];
               if (tile === Tile.LASER_ON || tile === Tile.SPIKE_TRAP_ON) {
+                  sounds.favorite();
+                  screenShake.current = 15 * scale;
                   p.lives--;
                   p.x = 1; p.y = p.id === 0 ? 1 : 2;
                   if (p.lives <= 0) setGameState('lose');
@@ -259,7 +277,10 @@ const MazeEscape: React.FC = () => {
                   if (p.id === 0) p1AtExit = true; else p2AtExit = true;
               }
           });
-          if (p1AtExit && p2AtExit) setGameState('win');
+          if (p1AtExit && p2AtExit) {
+            sounds.favorite();
+            setGameState('win');
+          }
       }
 
       // Drawing
@@ -281,6 +302,7 @@ const MazeEscape: React.FC = () => {
           ctx.fill();
       });
       ctx.shadowBlur = 0;
+      if (screenShake.current > 0) ctx.restore();
 
       // UI Text
       ctx.fillStyle = '#d3d0cb'; ctx.font = `700 ${24 * scale}px Orbitron`;
@@ -306,7 +328,8 @@ const MazeEscape: React.FC = () => {
     };
     animFrameId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(animFrameId);
-  }, [gameState, maze]);
+    // FIX: Removed `scale` from the dependency array as it is not defined in this scope.
+  }, [gameState, maze, sounds]);
 
   const handleStartGame = () => {
     if (gameState === 'start') {
@@ -319,7 +342,7 @@ const MazeEscape: React.FC = () => {
   return (
     <div ref={containerRef} className="w-full h-full relative font-poppins text-white cursor-pointer" style={{touchAction: 'none'}}>
       <canvas ref={canvasRef} onClick={handleStartGame} className="bg-gable-green rounded-lg shadow-glow w-full h-full" />
-      {isMobile.current && <MobileControls onMove={movePlayer} onAction={useAbility} />}
+      {isMobile.current && gameState === 'playing' && <MobileControls onMove={movePlayer} onAction={useAbility} />}
     </div>
   );
 };

@@ -1,4 +1,7 @@
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useSounds } from '../../hooks/useSounds';
+import { SOUND_EFFECTS } from '../../utils/sounds';
 
 // --- TYPES & CONSTANTS ---
 const ASPECT_RATIO = 1.2; // Game Area Aspect Ratio (Wider to accommodate UI)
@@ -50,6 +53,7 @@ const ChessBlitz: React.FC = () => {
   const [selectedPiece, setSelectedPiece] = useState<[number, number] | null>(null);
   const [validMoves, setValidMoves] = useState<[number, number][]>([]);
   const moveHistory = useRef<Board[]>([]);
+  const sounds = useSounds(SOUND_EFFECTS);
 
   const [powerUps, setPowerUps] = useState({
       white: { undo: 1, doubleMove: 1, freeze: 1 },
@@ -204,6 +208,12 @@ const ChessBlitz: React.FC = () => {
     const newBoard = board.map(row => [...row]);
     const piece = newBoard[from[0]][from[1]];
     if (!piece) return;
+
+    if (newBoard[to[0]][to[1]]) {
+      sounds.favorite(); // Capture sound
+    } else {
+      sounds.hover(); // Move sound
+    }
     
     if (piece.type === 'pawn' && (to[0] === 0 || to[0] === 7)) {
         piece.type = 'queen';
@@ -228,10 +238,11 @@ const ChessBlitz: React.FC = () => {
             setTurn(opponentColor);
         }
     }
-  }, [board, turn, checkForMate, isKingInCheck]);
+  }, [board, turn, checkForMate, isKingInCheck, sounds]);
 
   const handleUndo = () => {
       if (turn !== 'white' || powerUps.white.undo < 1 || moveHistory.current.length < 3) return;
+      sounds.filter();
       moveHistory.current.pop(); // AI move
       moveHistory.current.pop(); // Player move
       setBoard(moveHistory.current[moveHistory.current.length-1]);
@@ -240,12 +251,14 @@ const ChessBlitz: React.FC = () => {
 
   const handleDoubleMove = () => {
     if (turn !== 'white' || powerUps.white.doubleMove < 1) return;
+    sounds.filter();
     isDoubleMoveActive.current = true;
     setPowerUps(p => ({ ...p, white: { ...p.white, doubleMove: p.white.doubleMove - 1 } }));
   };
 
   const handleFreeze = () => {
     if (turn !== 'white' || powerUps.white.freeze < 1) return;
+    sounds.filter();
     isOpponentFrozen.current = true;
     setPowerUps(p => ({ ...p, white: { ...p.white, freeze: p.white.freeze - 1 } }));
   };
@@ -322,7 +335,8 @@ const ChessBlitz: React.FC = () => {
         if (piece) {
             ctx.fillStyle = piece.color === 'white' ? '#f0f0f0' : '#101010';
             ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 5 * scale;
-            ctx.fillText(PIECE_UNICODE[piece.color][piece.type], boardX + c_ * cellSize + cellSize / 2, boardY + r * cellSize + cellSize / 2 + (pieceFontSize*0.05));
+            // FIX: Added the missing y-coordinate argument to fillText.
+            ctx.fillText(PIECE_UNICODE[piece.color][piece.type], boardX + c_ * cellSize + cellSize / 2, boardY + r * cellSize + cellSize / 2);
         }
       }
       ctx.shadowBlur = 0;
@@ -354,7 +368,6 @@ const ChessBlitz: React.FC = () => {
     };
     draw();
     return () => cancelAnimationFrame(animFrameId);
-    // Fix: Removed `c.width` from the dependency array as it's incorrect and unnecessary.
   }, [board, timers, turn, selectedPiece, validMoves, gameState, winner]);
 
   useEffect(() => {
@@ -365,7 +378,7 @@ const ChessBlitz: React.FC = () => {
   
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (gameState === 'start' || gameState === 'gameOver') {
-      resetGame(); setGameState('playing'); return;
+      sounds.click(); resetGame(); setGameState('playing'); return;
     }
     if (turn !== 'white' || gameState !== 'playing') return;
 
@@ -381,9 +394,11 @@ const ChessBlitz: React.FC = () => {
       if (validMoves.some(([r, c_]) => r === row && c_ === col)) {
         makeMove(selectedPiece, [row, col]);
       } else {
+        sounds.filter();
         setSelectedPiece(null); setValidMoves([]);
       }
     } else if (board[row][col]?.color === 'white') {
+        sounds.click();
         setSelectedPiece([row, col]);
         setValidMoves(getValidMoves(row, col, board, true));
     }

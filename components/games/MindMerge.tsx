@@ -1,4 +1,7 @@
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useSounds } from '../../hooks/useSounds';
+import { SOUND_EFFECTS } from '../../utils/sounds';
 
 // --- CONSTANTS ---
 const ASPECT_RATIO = 800 / 500;
@@ -25,6 +28,11 @@ interface PathNode {
   path: { row: number, col: number }[];
 }
 
+interface Particle {
+  x: number; y: number; vx: number; vy: number;
+  life: number; size: number; color: string;
+}
+
 // --- GAME COMPONENT ---
 const MindMerge: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -33,6 +41,7 @@ const MindMerge: React.FC = () => {
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(INITIAL_TIME);
   const [gameState, setGameState] = useState<'start' | 'playing' | 'gameOver'>('start');
+  const sounds = useSounds(SOUND_EFFECTS);
 
   const grid = useRef<(Node | null)[][]>([]);
   const selectedNode = useRef<Node | null>(null);
@@ -40,6 +49,7 @@ const MindMerge: React.FC = () => {
   const timeAccumulator = useRef(0);
   const winningPath = useRef<{ row: number; col: number }[]>([]);
   const pathFade = useRef(0);
+  const particles = useRef<Particle[]>([]);
 
   // Scalable dimensions
   const c = useRef({
@@ -156,23 +166,36 @@ const MindMerge: React.FC = () => {
     return null;
   }, []);
 
+  const createParticles = useCallback((x: number, y: number, color: string) => {
+    for (let i = 0; i < 20; i++) {
+        particles.current.push({
+            x, y, color,
+            vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6,
+            life: Math.random() * 50 + 20, size: Math.random() * 2 + 1,
+        });
+    }
+  }, []);
+
   const resetGame = useCallback(() => {
     setScore(0);
     setTimeLeft(INITIAL_TIME);
     initializeBoard();
     selectedNode.current = null;
     winningPath.current = [];
+    particles.current = [];
     setGameState('start');
   }, [initializeBoard]);
 
   const handleInput = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     if (gameState === 'start') {
+      sounds.click();
       setGameState('playing');
       lastFrameTime.current = performance.now();
       return;
     }
     if (gameState === 'gameOver') {
+      sounds.click();
       resetGame();
       return;
     }
@@ -195,11 +218,17 @@ const MindMerge: React.FC = () => {
     if (!clickedNode || clickedNode.cleared) return;
 
     if (!selectedNode.current) {
+      sounds.hover();
       selectedNode.current = clickedNode;
     } else {
       if (selectedNode.current.id !== clickedNode.id && selectedNode.current.color === clickedNode.color) {
         const path = findPath(selectedNode.current, clickedNode);
         if (path) {
+          sounds.favorite();
+          const { gridOffsetX, gridOffsetY, cellWidth, cellHeight } = c.current;
+          createParticles(gridOffsetX + (selectedNode.current.col + 0.5) * cellWidth, gridOffsetY + (selectedNode.current.row + 0.5) * cellHeight, selectedNode.current.color);
+          createParticles(gridOffsetX + (clickedNode.col + 0.5) * cellWidth, gridOffsetY + (clickedNode.row + 0.5) * cellHeight, clickedNode.color);
+          
           selectedNode.current.cleared = true;
           clickedNode.cleared = true;
           grid.current[selectedNode.current.row][selectedNode.current.col] = null;
@@ -208,11 +237,13 @@ const MindMerge: React.FC = () => {
           setTimeLeft(t => Math.min(INITIAL_TIME, t + 1.5));
           winningPath.current = path;
           pathFade.current = 1.0;
+        } else {
+            sounds.filter();
         }
       }
       selectedNode.current = null;
     }
-  }, [gameState, findPath, resetGame]);
+  }, [gameState, findPath, resetGame, sounds, createParticles]);
 
   useEffect(() => {
     window.addEventListener('resize', updateConstants);
@@ -237,6 +268,7 @@ const MindMerge: React.FC = () => {
           timeAccumulator.current -= 1;
         }
         if (timeLeft <= 0) {
+          sounds.favorite();
           setGameState('gameOver');
         }
       }
@@ -262,6 +294,16 @@ const MindMerge: React.FC = () => {
         }
         ctx.stroke();
       }
+      
+      // Draw particles
+      particles.current = particles.current.filter(p => p.life > 0);
+      particles.current.forEach(p => {
+          p.life--; p.x += p.vx; p.y += p.vy;
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.life / 60;
+          ctx.fillRect(p.x,p.y,p.size,p.size);
+      });
+      ctx.globalAlpha = 1;
 
       // Draw nodes
       for (let r = 0; r < GRID_ROWS; r++) {
@@ -316,7 +358,7 @@ const MindMerge: React.FC = () => {
       window.removeEventListener('resize', updateConstants);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [gameState, score, timeLeft, updateConstants, resetGame, findPath]);
+  }, [gameState, score, timeLeft, updateConstants, resetGame, findPath, sounds]);
 
   return (
     <div ref={containerRef} className="w-full h-full cursor-pointer">

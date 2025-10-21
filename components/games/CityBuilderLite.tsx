@@ -1,4 +1,7 @@
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useSounds } from '../../hooks/useSounds';
+import { SOUND_EFFECTS } from '../../utils/sounds';
 
 // --- TYPES & CONSTANTS ---
 const ASPECT_RATIO = 1.25;
@@ -11,6 +14,11 @@ interface Building {
   type: BuildingType;
   row: number;
   col: number;
+  animation: number; // for pop effect
+}
+interface Particle {
+  x: number; y: number; vx: number; vy: number;
+  life: number; size: number; color: string;
 }
 
 const BUILDING_DATA: Record<BuildingType, {
@@ -46,6 +54,8 @@ const CityBuilderLite: React.FC = () => {
   const [mousePos, setMousePos] = useState<{ x: number, y: number } | null>(null);
   const [isBuildMenuOpen, setBuildMenuOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const particles = useRef<Particle[]>([]);
+  const sounds = useSounds(SOUND_EFFECTS);
 
   const c = useRef({ width: 1000, height: 800, scale: 1, cellSize: 0, gridX: 0, gridY: 0 });
 
@@ -65,27 +75,42 @@ const CityBuilderLite: React.FC = () => {
       canvasRef.current.height = height;
     }
   }, []);
+  
+  const createParticles = useCallback((x: number, y: number, color: string) => {
+    for (let i = 0; i < 20; i++) {
+        particles.current.push({
+            x, y, color,
+            vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4,
+            life: Math.random() * 50 + 20, size: Math.random() * 2 + 1,
+        });
+    }
+  }, []);
 
-  const showMessage = useCallback((msg: string) => {
+  const showMessage = useCallback((msg: string, isError: boolean) => {
+    if(isError) sounds.favorite(); else sounds.filter();
     setMessage(msg);
     setTimeout(() => setMessage(null), 2000);
-  }, []);
+  }, [sounds]);
 
   const handlePlaceBuilding = (row: number, col: number) => {
     if (!placing) return;
     const data = BUILDING_DATA[placing];
     if (resources.cash < data.cost) {
-      showMessage("Not enough cash!");
+      showMessage("Not enough cash!", true);
       return;
     }
     if (grid[row][col]) {
-      showMessage("This tile is occupied!");
+      showMessage("This tile is occupied!", true);
       return;
     }
+    sounds.click();
+    const { gridX, gridY, cellSize } = c.current;
+    createParticles(gridX + (col + 0.5) * cellSize, gridY + (row + 0.5) * cellSize, '#d3d0cb');
+
     setResources(res => ({ ...res, cash: res.cash - data.cost }));
     setGrid(g => {
       const newGrid = g.map(r => [...r]);
-      newGrid[row][col] = { type: placing, row, col };
+      newGrid[row][col] = { type: placing, row, col, animation: 0 };
       return newGrid;
     });
     setPlacing(null);
@@ -135,6 +160,14 @@ const CityBuilderLite: React.FC = () => {
       const { width, height, scale, cellSize, gridX, gridY } = c.current;
       ctx.clearRect(0,0,width,height);
       ctx.fillStyle = '#17557b'; ctx.fillRect(0,0,width,height);
+      
+      particles.current = particles.current.filter(p => p.life > 0);
+      particles.current.forEach(p => {
+          p.life--; p.x += p.vx; p.y += p.vy;
+          ctx.fillStyle = p.color; ctx.globalAlpha = p.life / 60;
+          ctx.fillRect(p.x,p.y,p.size,p.size);
+      });
+      ctx.globalAlpha = 1;
 
       for (let r = 0; r < GRID_SIZE; r++) {
         for (let c_ = 0; c_ < GRID_SIZE; c_++) {
@@ -142,10 +175,14 @@ const CityBuilderLite: React.FC = () => {
           ctx.strokeRect(gridX + c_ * cellSize, gridY + r * cellSize, cellSize, cellSize);
           const building = grid[r][c_];
           if(building) {
+            if(building.animation < 1) building.animation += 0.1;
+            const sizeMultiplier = 0.8 + 0.2 * Math.sin(building.animation * Math.PI); // Pop effect
+            const currentSize = cellSize * sizeMultiplier;
+
             const data = BUILDING_DATA[building.type];
             ctx.fillStyle = data.color;
-            ctx.fillRect(gridX + c_ * cellSize, gridY + r * cellSize, cellSize, cellSize);
-            ctx.font = `${cellSize * 0.6}px sans-serif`;
+            ctx.fillRect(gridX + c_ * cellSize + (cellSize - currentSize)/2, gridY + r * cellSize + (cellSize - currentSize)/2, currentSize, currentSize);
+            ctx.font = `${currentSize * 0.6}px sans-serif`;
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(data.icon, gridX + (c_ + 0.5) * cellSize, gridY + (r + 0.5) * cellSize);
           }
@@ -210,17 +247,17 @@ const CityBuilderLite: React.FC = () => {
       {message && <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-lg animate-fade-in z-30">{message}</div>}
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
-        <button onClick={() => setBuildMenuOpen(true)} className="px-6 py-3 bg-calypso text-white font-bold rounded-lg shadow-lg hover:bg-opacity-90 transform hover:scale-105 transition-all">
+        <button onClick={() => { sounds.click(); setBuildMenuOpen(true); }} className="px-6 py-3 bg-calypso text-white font-bold rounded-lg shadow-lg hover:bg-opacity-90 transform hover:scale-105 transition-all">
           Build 🏗️
         </button>
-        {placing && <button onClick={() => setPlacing(null)} className="ml-4 px-6 py-3 bg-regent-gray text-white font-bold rounded-lg shadow-lg hover:bg-opacity-90 transform hover:scale-105 transition-all">Cancel</button>}
+        {placing && <button onClick={() => { sounds.filter(); setPlacing(null); }} className="ml-4 px-6 py-3 bg-regent-gray text-white font-bold rounded-lg shadow-lg hover:bg-opacity-90 transform hover:scale-105 transition-all">Cancel</button>}
       </div>
 
       {isBuildMenuOpen && (
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-30 flex items-center justify-center" onClick={() => setBuildMenuOpen(false)}>
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-30 flex items-center justify-center" onClick={() => { sounds.filter(); setBuildMenuOpen(false); }}>
           <div className="bg-chathams-blue p-4 rounded-lg w-11/12 max-w-lg grid grid-cols-2 gap-4" onClick={e => e.stopPropagation()}>
             {Object.entries(BUILDING_DATA).map(([type, data]) => (
-              <div key={type} onClick={() => { setPlacing(type as BuildingType); setBuildMenuOpen(false); }}
+              <div key={type} onClick={() => { setPlacing(type as BuildingType); setBuildMenuOpen(false); sounds.click(); }}
                    className={`p-3 bg-gable-green rounded-lg text-center ${resources.cash < data.cost ? 'opacity-50' : 'cursor-pointer hover:bg-calypso'}`}>
                 <div className="text-4xl">{data.icon}</div>
                 <div className="font-bold">{data.name}</div>

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Game } from '../types';
 import ParticleBackground from './ParticleBackground';
@@ -9,6 +10,15 @@ import CityBuilderLite from './games/CityBuilderLite';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import SpaceMinerTycoon from './games/SpaceMinerTycoon';
 import MazeEscape from './games/MazeEscape';
+import MemoryVault from './games/MemoryVault';
+import ShadowDuel from './games/ShadowDuel';
+import TapTitans from './games/TapTitans';
+import DodgeCircle from './games/DodgeCircle';
+import TankRoyale from './games/TankRoyale';
+import TugOfTap from './games/TugOfTap';
+import FoodFrenzy from './games/FoodFrenzy';
+import LastSquareStanding from './games/LastSquareStanding';
+
 
 interface GameContainerProps {
   game: Game;
@@ -32,6 +42,22 @@ const GameContainer: React.FC<GameContainerProps> = ({ game, onExit }) => {
         return <SpaceMinerTycoon />;
       case 'maze-escape':
         return <MazeEscape />;
+      case 'memory-vault':
+        return <MemoryVault />;
+      case 'shadow-duel':
+        return <ShadowDuel />;
+      case 'tap-titans':
+        return <TapTitans />;
+      case 'dodge-circle':
+        return <DodgeCircle />;
+      case 'tank-royale':
+        return <TankRoyale />;
+      case 'tug-of-tap':
+        return <TugOfTap />;
+      case 'food-frenzy':
+        return <FoodFrenzy />;
+      case 'last-square-standing':
+        return <LastSquareStanding />;
       default:
         return (
           <div className="text-center">

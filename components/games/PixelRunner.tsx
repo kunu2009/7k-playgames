@@ -1,5 +1,8 @@
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { statsManager } from '../../utils/statsManager';
+import { useSounds } from '../../hooks/useSounds';
+import { SOUND_EFFECTS } from '../../utils/sounds';
 
 const ASPECT_RATIO = 800 / 500;
 const ORIGINAL_WIDTH = 800;
@@ -18,6 +21,10 @@ interface GameObject {
   initialY?: number;
   collected?: boolean;
 }
+interface Particle {
+  x: number; y: number; vx: number; vy: number;
+  life: number; size: number; color: string;
+}
 
 const PixelRunner: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -25,10 +32,12 @@ const PixelRunner: React.FC = () => {
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [gameState, setGameState] = useState<'start' | 'playing' | 'gameOver'>('start');
+  const sounds = useSounds(SOUND_EFFECTS);
 
   // Use refs for mutable game state that's accessed inside the game loop
   const player = useRef({ y: 0, vy: 0, onGround: true });
   const gameObjects = useRef<GameObject[]>([]);
+  const particles = useRef<Particle[]>([]);
   const frameCount = useRef(0);
   const gameSpeed = useRef(0);
   const parallaxOffset = useRef(0);
@@ -80,6 +89,19 @@ const PixelRunner: React.FC = () => {
       }
       gameSpeed.current = c.current.initialGameSpeed;
   }, []);
+  
+  const createParticles = useCallback((x: number, y: number, count: number, color: string) => {
+    for(let i=0; i<count; i++) {
+        particles.current.push({
+            x, y,
+            vx: (Math.random() - 0.5) * 4 * c.current.scale,
+            vy: (Math.random() - 0.5) * 4 * c.current.scale,
+            life: Math.random() * 40 + 20,
+            size: Math.random() * 2 * c.current.scale + 1,
+            color
+        });
+    }
+  }, []);
 
   const resetGame = useCallback(() => {
     player.current = {
@@ -88,6 +110,7 @@ const PixelRunner: React.FC = () => {
       onGround: true,
     };
     gameObjects.current = [];
+    particles.current = [];
     gameSpeed.current = c.current.initialGameSpeed;
     setScore(0);
     frameCount.current = 0;
@@ -96,14 +119,18 @@ const PixelRunner: React.FC = () => {
   
   const handleInput = useCallback(() => {
     if (gameStateRef.current === 'start') {
+      sounds.click();
       setGameState('playing');
     } else if (gameStateRef.current === 'playing' && player.current.onGround) {
+      sounds.hover();
       player.current.vy = c.current.jumpForce;
       player.current.onGround = false;
+      createParticles(c.current.playerX, player.current.y + c.current.playerHeight, 10, '#d3d0cb');
     } else if (gameStateRef.current === 'gameOver') {
+      sounds.click();
       resetGame();
     }
-  }, [resetGame]);
+  }, [resetGame, sounds, createParticles]);
 
   const handleCanvasInteraction = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
@@ -229,6 +256,15 @@ const PixelRunner: React.FC = () => {
       });
       ctx.shadowBlur = 0;
 
+      particles.current = particles.current.filter(p => p.life > 0);
+      particles.current.forEach(p => {
+          p.life--; p.x += p.vx; p.y += p.vy;
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.life / 60;
+          ctx.fillRect(p.x, p.y, p.size, p.size);
+      });
+      ctx.globalAlpha = 1;
+
       ctx.fillStyle = '#36d7b7';
       ctx.shadowColor = '#36d7b7';
       ctx.shadowBlur = 15 * scale;
@@ -239,6 +275,8 @@ const PixelRunner: React.FC = () => {
         for (const obj of gameObjects.current) {
             if (obj.type === 'ground' || obj.type === 'flying') {
               if (playerX < obj.x + obj.width && playerX + playerWidth > obj.x && player.current.y < obj.y + obj.height && player.current.y + playerHeight > obj.y) {
+                sounds.favorite();
+                createParticles(playerX + playerWidth/2, player.current.y + playerHeight/2, 30, '#ff6347');
                 const newHighScore = statsManager.updateHighScore('pixel-runner', scoreRef.current);
                 setHighScore(newHighScore);
                 setGameState('gameOver');
@@ -247,7 +285,9 @@ const PixelRunner: React.FC = () => {
             } else if (obj.type === 'orb' && !obj.collected) {
                 const dist = Math.hypot(obj.x - (playerX + playerWidth / 2), obj.y - (player.current.y + playerHeight / 2));
                 if (dist < obj.width / 2 + playerWidth / 2) {
+                    sounds.favorite();
                     obj.collected = true;
+                    createParticles(obj.x, obj.y, 20, '#f0e68c');
                     setScore(s => s + 500);
                 }
             }
@@ -262,8 +302,13 @@ const PixelRunner: React.FC = () => {
       
       ctx.textAlign = 'center';
       if (gameStateRef.current === 'start') {
-        ctx.font = `${48 * scale}px Poppins`; ctx.fillText('Pixel Runner', width / 2, height / 2 - 40 * scale);
+        ctx.font = `${48 * scale}px Poppins`; ctx.fillText('Pixel Runner', width / 2, height / 2 - 50 * scale);
         ctx.font = `${24 * scale}px Poppins`; ctx.fillText('Tap or Press Space to Start', width / 2, height / 2);
+        
+        ctx.save();
+        ctx.fillStyle = '#8da3b0';
+        ctx.font = `${18 * scale}px Poppins`; ctx.fillText('Controls: Tap or Press Space to Jump', width / 2, height / 2 + 40 * scale);
+        ctx.restore();
       } else if (gameStateRef.current === 'gameOver') {
         ctx.font = `${48 * scale}px Poppins`; ctx.fillText('Game Over', width / 2, height / 2 - 40 * scale);
         ctx.font = `${24 * scale}px Poppins`; ctx.fillText(`Final Score: ${scoreRef.current}`, width / 2, height / 2);
@@ -277,7 +322,7 @@ const PixelRunner: React.FC = () => {
       window.removeEventListener('resize', updateConstants);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [handleInput, resetGame, updateConstants]);
+  }, [handleInput, resetGame, updateConstants, sounds, createParticles]);
 
   return (
     <div ref={containerRef} className="w-full h-full cursor-pointer">

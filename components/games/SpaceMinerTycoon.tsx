@@ -1,5 +1,8 @@
+
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import useLocalStorage from '../../hooks/useLocalStorage';
+import { useSounds } from '../../hooks/useSounds';
+import { SOUND_EFFECTS } from '../../utils/sounds';
 
 // --- TYPES & CONSTANTS ---
 const ASPECT_RATIO = 1.25;
@@ -40,7 +43,7 @@ interface FloatingText {
 }
 
 const RESOURCE_DATA: Record<ResourceType, { color: string; value: number; healthModifier: number }> = {
-  iron: { color: '#regent-gray', value: 1, healthModifier: 1 },
+  iron: { color: '#828f9a', value: 1, healthModifier: 1 },
   cobalt: { color: '#366e8d', value: 5, healthModifier: 2.5 },
   gold: { color: '#f0e68c', value: 25, healthModifier: 5 },
 };
@@ -62,6 +65,7 @@ const SpaceMinerTycoon: React.FC = () => {
   const [resources, setResources] = useLocalStorage<Record<ResourceType, number>>('smt-resources', { iron: 0, cobalt: 0, gold: 0 });
   const [upgrades, setUpgrades] = useLocalStorage<Record<UpgradeType, number>>('smt-upgrades', { laser: 1, drone: 0, cargo: 1, scanner: 1 });
   const [isUpgradeMenuOpen, setUpgradeMenuOpen] = useState(false);
+  const sounds = useSounds(SOUND_EFFECTS);
 
   // Refs for animation objects
   const asteroids = useRef<Asteroid[]>([]);
@@ -98,6 +102,7 @@ const SpaceMinerTycoon: React.FC = () => {
   }, []);
 
   const spawnAsteroid = useCallback(() => {
+    if (asteroids.current.length > 10) return;
     const { width, height, scale } = c.current;
     const size = (Math.random() * 40 + 20) * scale;
     const scannerBonus = 1 + (upgrades.scanner / 100);
@@ -123,7 +128,10 @@ const SpaceMinerTycoon: React.FC = () => {
   const handleMine = useCallback((asteroid: Asteroid, damage: number) => {
     asteroid.health -= damage;
     laserFlash.current = 1;
+    if (damage > 1) sounds.hover(); // Click mining sound
+    
     if (asteroid.health <= 0) {
+      sounds.favorite(); // Explosion sound
       // Collect resources
       const amount = Math.floor(asteroid.size / c.current.scale / 4);
       if(totalResources + amount <= cargoCapacity) {
@@ -134,17 +142,17 @@ const SpaceMinerTycoon: React.FC = () => {
       }
 
       // Create explosion particles
-      for (let i = 0; i < asteroid.size / 2; i++) {
+      for (let i = 0; i < asteroid.size; i++) {
         particles.current.push({
           x: asteroid.x, y: asteroid.y,
-          vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5,
-          size: Math.random() * 3, life: Math.random() * 60 + 30,
+          vx: (Math.random() - 0.5) * (Math.random() * 8), vy: (Math.random() - 0.5) * (Math.random() * 8),
+          size: Math.random() * 3 + 1, life: Math.random() * 60 + 40,
           color: RESOURCE_DATA[asteroid.type].color,
         });
       }
       asteroids.current = asteroids.current.filter(a => a.id !== asteroid.id);
     }
-  }, [totalResources, cargoCapacity, setResources]);
+  }, [totalResources, cargoCapacity, setResources, sounds]);
 
   const handleCanvasClick = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current; if (!canvas) return;
@@ -164,6 +172,7 @@ const SpaceMinerTycoon: React.FC = () => {
   }, [handleMine, upgrades.laser]);
   
   const sellResources = () => {
+    sounds.click();
     const earnings = Object.entries(resources).reduce((acc, [type, amount]) => {
       return acc + amount * RESOURCE_DATA[type as ResourceType].value;
     }, 0);
@@ -175,8 +184,11 @@ const SpaceMinerTycoon: React.FC = () => {
     const level = upgrades[type];
     const cost = Math.floor(UPGRADE_DATA[type].baseCost * Math.pow(1.5, level));
     if (cash >= cost) {
+      sounds.click();
       setCash(prev => prev - cost);
       setUpgrades(prev => ({ ...prev, [type]: prev[type] + 1 }));
+    } else {
+      sounds.favorite();
     }
   };
 
@@ -188,14 +200,15 @@ const SpaceMinerTycoon: React.FC = () => {
     let lastTime = 0;
     
     const gameLoop = (timestamp: number) => {
-      const deltaTime = timestamp - lastTime;
+      const deltaTime = timestamp - lastTime || 16.7;
       lastTime = timestamp;
       const { width, height, scale, shipX, shipY } = c.current;
 
       // Update logic
       if (Math.random() < 0.01) spawnAsteroid(); // Spawn new asteroids
       if (upgrades.drone > 0 && asteroids.current.length > 0) {
-        handleMine(asteroids.current[0], upgrades.drone * 2.5 * (deltaTime / 1000));
+        const droneDamage = upgrades.drone * 2.5 * (deltaTime / 1000);
+        handleMine(asteroids.current[0], droneDamage);
       }
 
       stars.current.forEach(s => { s.x -= s.size * 0.1; if(s.x < 0) {s.x = width; s.y = Math.random() * height;} });
@@ -244,7 +257,7 @@ const SpaceMinerTycoon: React.FC = () => {
         ctx.fillStyle = '#36d7b7'; ctx.fillRect(a.x - a.size, a.y - a.size - 10 * scale, a.size * 2 * (a.health / a.maxHealth), 5 * scale);
       });
       
-      particles.current.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); });
+      particles.current.forEach(p => { ctx.globalAlpha = p.life / 60; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); ctx.globalAlpha = 1; });
       floatingTexts.current.forEach(t => {
         ctx.font = `bold ${16 * scale}px Poppins`; ctx.fillStyle = `rgba(255,255,255, ${t.life/60})`;
         ctx.fillText(t.text, t.x, t.y);
@@ -290,7 +303,7 @@ const SpaceMinerTycoon: React.FC = () => {
           </div>
           
           {/* Upgrades Button */}
-          <button onClick={() => setUpgradeMenuOpen(true)} className="bg-calypso text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-opacity-90 transform hover:scale-105 transition-all pointer-events-auto">
+          <button onClick={() => { sounds.click(); setUpgradeMenuOpen(true); }} className="bg-calypso text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-opacity-90 transform hover:scale-105 transition-all pointer-events-auto">
             Upgrades 🚀
           </button>
         </div>
@@ -298,7 +311,7 @@ const SpaceMinerTycoon: React.FC = () => {
 
       {/* Upgrade Menu Modal */}
       {isUpgradeMenuOpen && (
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-30 flex items-center justify-center" onClick={() => setUpgradeMenuOpen(false)}>
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-30 flex items-center justify-center" onClick={() => { sounds.filter(); setUpgradeMenuOpen(false); }}>
           <div className="bg-chathams-blue p-4 rounded-lg w-11/12 max-w-md pointer-events-auto flex flex-col gap-3" onClick={e => e.stopPropagation()}>
             <h2 className="text-2xl font-orbitron text-center border-b border-calypso/50 pb-2">Ship Upgrades</h2>
             {Object.entries(upgrades).map(([type, level]) => {
