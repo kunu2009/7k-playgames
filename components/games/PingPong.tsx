@@ -4,6 +4,7 @@ import { SOUND_EFFECTS } from '../../utils/sounds';
 
 const ASPECT_RATIO = 800 / 500;
 
+// --- TYPES ---
 interface Particle {
   x: number;
   y: number;
@@ -14,6 +15,26 @@ interface Particle {
   color: string;
 }
 
+type PowerUpType = 'speed' | 'grow' | 'reverse';
+
+interface PowerUp {
+  id: number;
+  x: number;
+  y: number;
+  type: PowerUpType;
+  size: number;
+  life: number;
+  color: string;
+  icon: string;
+}
+
+interface ActivePowerUp {
+    type: PowerUpType;
+    duration: number; // in frames
+    target: 'player' | 'opponent';
+}
+
+
 const PingPong: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -21,8 +42,17 @@ const PingPong: React.FC = () => {
   const [score, setScore] = useState({ player: 0, opponent: 0 });
   const [message, setMessage] = useState('Click or Tap to Start');
   
+  // Refs to hold the latest state for the animation loop to avoid stale closures
+  const scoreRef = useRef(score);
+  scoreRef.current = score;
+  const messageRef = useRef(message);
+  messageRef.current = message;
+
   const gameStatus = useRef<'start' | 'playing' | 'gameOver'>('start');
   const particles = useRef<Particle[]>([]);
+  const powerUps = useRef<PowerUp[]>([]);
+  const activePowerUps = useRef<ActivePowerUp[]>([]);
+  
   const sounds = useSounds(SOUND_EFFECTS);
   
   const gameDimensions = useRef({
@@ -35,9 +65,10 @@ const PingPong: React.FC = () => {
       scale: 1,
   });
 
-  const ball = useRef({ x: 0, y: 0, dx: 0, dy: 0, spinY: 0 });
-  const player = useRef({ y: 0, vy: 0, lastY: 0 });
-  const opponent = useRef({ y: 0 });
+  const ball = useRef({ x: 0, y: 0, dx: 0, dy: 0, spinY: 0, lastHitBy: 'player' as ('player' | 'opponent') });
+  const player = useRef({ y: 0, vy: 0, lastY: 0, height: 100 });
+  const opponent = useRef({ y: 0, height: 100, controlsReversed: false });
+  const frameCount = useRef(0);
 
   const updateDimensions = useCallback(() => {
     if(!containerRef.current) return;
@@ -75,6 +106,31 @@ const PingPong: React.FC = () => {
         });
     }
   }, []);
+  
+  const spawnPowerUp = useCallback(() => {
+    if (powerUps.current.length > 0) return;
+    const { width, height, scale } = gameDimensions.current;
+    
+    const rand = Math.random();
+    let type: PowerUpType, color: string, icon: string;
+
+    if (rand < 0.4) {
+      type = 'grow'; color = '#87ceeb'; icon = '↔️';
+    } else if (rand < 0.8) {
+      type = 'speed'; color = '#f0e68c'; icon = '⚡️';
+    } else {
+      type = 'reverse'; color = '#9370db'; icon = '❓';
+    }
+
+    powerUps.current.push({
+        id: Date.now(),
+        type, color, icon,
+        x: width / 2,
+        y: height / 2 + (Math.random() - 0.5) * (height / 2),
+        size: 15 * scale,
+        life: 500 // frames
+    });
+  }, []);
 
   const resetBall = useCallback((direction: 1 | -1) => {
     const { width, height } = gameDimensions.current;
@@ -84,6 +140,7 @@ const PingPong: React.FC = () => {
       dx: direction * (width / 200),
       dy: (Math.random() * (height/80) - (height/160)),
       spinY: 0,
+      lastHitBy: 'player'
     };
   }, []);
 
@@ -93,23 +150,34 @@ const PingPong: React.FC = () => {
     player.current.y = height / 2 - paddleHeight / 2;
     player.current.vy = 0;
     player.current.lastY = height / 2 - paddleHeight / 2;
+    player.current.height = paddleHeight;
     opponent.current.y = height / 2 - paddleHeight / 2;
+    opponent.current.height = paddleHeight;
     gameStatus.current = 'start';
     setMessage('Click or Tap to Start');
     particles.current = [];
+    powerUps.current = [];
+    activePowerUps.current = [];
     resetBall(1);
   }, [resetBall]);
 
   useEffect(() => {
-    window.addEventListener('resize', updateDimensions);
+    // This effect only runs once to set up the game loop.
+    // All continuously changing variables are accessed via refs inside the loop.
+    
     updateDimensions();
     resetGame();
+    window.addEventListener('resize', updateDimensions);
 
     let animationFrameId: number;
+    
     const gameLoop = () => {
-      const { width, height, paddleWidth, paddleHeight, ballRadius, scale } = gameDimensions.current;
+      const { width, height, paddleWidth, ballRadius, scale } = gameDimensions.current;
       const ctx = canvasRef.current?.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) {
+        animationFrameId = requestAnimationFrame(gameLoop);
+        return;
+      };
       
       // Calculate player paddle velocity for spin effect
       const playerVel = player.current.y - player.current.lastY;
@@ -117,125 +185,150 @@ const PingPong: React.FC = () => {
       player.current.lastY = player.current.y;
 
       if (gameStatus.current === 'playing') {
-        // Apply spin to ball's vertical velocity
+        frameCount.current++;
+        if (frameCount.current % 300 === 0) spawnPowerUp();
+
+        // --- POWER-UP LOGIC ---
+        let ballSpeedMultiplier = 1;
+        player.current.height = gameDimensions.current.paddleHeight;
+        opponent.current.height = gameDimensions.current.paddleHeight;
+        opponent.current.controlsReversed = false;
+
+        activePowerUps.current = activePowerUps.current.filter(p => p.duration-- > 0);
+        activePowerUps.current.forEach(p => {
+          if (p.type === 'speed') ballSpeedMultiplier = 1.5;
+          if (p.type === 'grow') {
+            if (p.target === 'player') player.current.height *= 1.5;
+            else opponent.current.height *= 1.5;
+          }
+          if (p.type === 'reverse' && p.target === 'opponent') {
+            opponent.current.controlsReversed = true;
+          }
+        });
+
+        // Update on-screen power-ups
+        powerUps.current.forEach(p => p.life--);
+        powerUps.current = powerUps.current.filter(p => p.life > 0);
+
+        // --- BALL MOVEMENT ---
         ball.current.dy += ball.current.spinY;
-        
-        ball.current.x += ball.current.dx;
-        ball.current.y += ball.current.dy;
+        ball.current.x += ball.current.dx * ballSpeedMultiplier;
+        ball.current.y += ball.current.dy * ballSpeedMultiplier;
 
         if (ball.current.y + ballRadius > height || ball.current.y - ballRadius < 0) {
           ball.current.dy *= -1;
-          ball.current.spinY *= -0.8; // Dampen and reverse spin on wall hit
+          ball.current.spinY *= -0.8;
           sounds.hover();
         }
         
+        // --- PADDLE COLLISION ---
         const maxSpeedX = width / 60;
-
         let p = ball.current.x < width / 2 ? player.current : opponent.current;
+        let paddleHeight = p.height;
         if (
           (ball.current.x - ballRadius < paddleWidth && ball.current.dx < 0 && ball.current.y > p.y && ball.current.y < p.y + paddleHeight) ||
           (ball.current.x + ballRadius > width - paddleWidth && ball.current.dx > 0 && ball.current.y > p.y && ball.current.y < p.y + paddleHeight)
         ) {
             sounds.click();
             createParticles(ball.current.x, ball.current.y);
+            ball.current.lastHitBy = (p === player.current) ? 'player' : 'opponent';
             
-            if(Math.abs(ball.current.dx) < maxSpeedX) {
-                ball.current.dx *= -1.05;
-            } else {
-                ball.current.dx *= -1;
-            }
+            if(Math.abs(ball.current.dx) < maxSpeedX) ball.current.dx *= -1.05;
+            else ball.current.dx *= -1;
 
             let collidePoint = (ball.current.y - (p.y + paddleHeight / 2));
             collidePoint = collidePoint / (paddleHeight/2);
             
-            // 1. Enhanced Bounce Angle
-            const maxAngleFactor = width / 120; // Increased sensitivity
+            const maxAngleFactor = width / 120;
             ball.current.dy = collidePoint * maxAngleFactor;
 
-            // 2. Spin Effect
             const paddleVy = (p === player.current) ? player.current.vy : 0;
             const spinFromSpeed = paddleVy * 0.02;
             const spinFromCollision = collidePoint * 0.03;
-
             const newSpin = (ball.current.spinY * 0.4) + spinFromSpeed + spinFromCollision;
             const maxSpin = 0.5 * scale;
             ball.current.spinY = Math.max(-maxSpin, Math.min(maxSpin, newSpin));
         }
         
-        if (ball.current.x - ballRadius < 0) {
-            setScore(s => ({ ...s, opponent: s.opponent + 1 }));
-            sounds.favorite();
-            resetBall(1);
-        } else if (ball.current.x + ballRadius > width) {
-            setScore(s => ({ ...s, player: s.player + 1 }));
-            sounds.favorite();
-            resetBall(-1);
+        // --- POWER-UP COLLECTION ---
+        for(let i = powerUps.current.length - 1; i >= 0; i--) {
+            const p = powerUps.current[i];
+            const dist = Math.hypot(ball.current.x - p.x, ball.current.y - p.y);
+            if (dist < ballRadius + p.size) {
+                sounds.favorite();
+                const target = p.type === 'reverse' ? (ball.current.lastHitBy === 'player' ? 'opponent' : 'player') : ball.current.lastHitBy;
+                activePowerUps.current.push({ type: p.type, duration: 400, target });
+                powerUps.current.splice(i, 1);
+            }
         }
         
-        // AI Opponent Logic
-        const aiReactionSpeed = 0.1;
-        const targetY = ball.current.y - paddleHeight / 2;
-        const newOpponentY = opponent.current.y + (targetY - opponent.current.y) * aiReactionSpeed;
+        // --- SCORING ---
+        if (ball.current.x - ballRadius < 0) {
+            setScore(s => ({ ...s, opponent: s.opponent + 1 }));
+            sounds.favorite(); resetBall(1);
+        } else if (ball.current.x + ballRadius > width) {
+            setScore(s => ({ ...s, player: s.player + 1 }));
+            sounds.favorite(); resetBall(-1);
+        }
         
-        opponent.current.y = Math.max(0, Math.min(height - paddleHeight, newOpponentY));
+        // --- AI LOGIC ---
+        const aiReactionSpeed = 0.1;
+        let targetY = ball.current.y - opponent.current.height / 2;
+        let newOpponentY = opponent.current.y + (targetY - opponent.current.y) * aiReactionSpeed * (opponent.current.controlsReversed ? -1 : 1);
+        opponent.current.y = Math.max(0, Math.min(height - opponent.current.height, newOpponentY));
       }
 
-      particles.current.forEach(p => {
-          p.x += p.vx;
-          p.y += p.vy;
-          p.life--;
-      });
+      // --- DRAWING ---
+      particles.current.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; });
       particles.current = particles.current.filter(p => p.life > 0);
 
-      ctx.fillStyle = 'rgba(19, 38, 47, 0.25)';
-      ctx.fillRect(0, 0, width, height);
-      
-      ctx.strokeStyle = '#828f9a';
-      ctx.shadowColor = '#36d7b7';
-      ctx.shadowBlur = 20;
+      ctx.fillStyle = 'rgba(19, 38, 47, 0.25)'; ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = '#828f9a'; ctx.shadowColor = '#36d7b7'; ctx.shadowBlur = 20;
       ctx.setLineDash([height/50, height/50]);
-      ctx.beginPath();
-      ctx.moveTo(width / 2, 0);
-      ctx.lineTo(width / 2, height);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.shadowBlur = 0;
+      ctx.beginPath(); ctx.moveTo(width / 2, 0); ctx.lineTo(width / 2, height); ctx.stroke();
+      ctx.setLineDash([]); ctx.shadowBlur = 0;
       
-      ctx.fillStyle = '#d3d0cb';
-      ctx.shadowColor = '#36d7b7';
-      ctx.shadowBlur = 15;
-      ctx.fillRect(0, player.current.y, paddleWidth, paddleHeight);
-      ctx.fillRect(width - paddleWidth, opponent.current.y, paddleWidth, paddleHeight);
+      ctx.fillStyle = '#d3d0cb'; ctx.shadowColor = '#36d7b7'; ctx.shadowBlur = 15;
+      ctx.fillRect(0, player.current.y, paddleWidth, player.current.height);
+      ctx.fillRect(width - paddleWidth, opponent.current.y, paddleWidth, opponent.current.height);
 
       const ballGlow = 10 + Math.abs(ball.current.dx);
       ctx.shadowBlur = ballGlow;
-      ctx.beginPath();
-      ctx.arc(ball.current.x, ball.current.y, ballRadius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      ctx.beginPath(); ctx.arc(ball.current.x, ball.current.y, ballRadius, 0, Math.PI * 2);
+      ctx.fill(); ctx.shadowBlur = 0;
+
+      powerUps.current.forEach(p => {
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = p.color; ctx.globalAlpha = p.life < 100 ? p.life / 100 : 1;
+          ctx.fill(); ctx.globalAlpha = 1;
+          ctx.font = `${p.size}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#13262f'; ctx.fillText(p.icon, p.x, p.y + 2*scale);
+      });
 
       particles.current.forEach(p => {
         ctx.fillStyle = `rgba(54, 215, 183, ${p.life / 30})`;
         ctx.fillRect(p.x, p.y, p.size, p.size);
       });
       
-      ctx.fillStyle = '#d3d0cb';
-      ctx.font = `700 ${width/16.6}px Orbitron`;
-      ctx.fillText(score.player.toString(), width / 4, height/8);
-      ctx.fillText(score.opponent.toString(), (width / 4) * 3, height/8);
+      ctx.fillStyle = '#d3d0cb'; ctx.font = `700 ${width/16.6}px Orbitron`; ctx.textAlign = 'center';
+      ctx.fillText(scoreRef.current.player.toString(), width / 4, height/8);
+      ctx.fillText(scoreRef.current.opponent.toString(), (width / 4) * 3, height/8);
       
+      ctx.font = `400 ${width/50}px Poppins`;
+      activePowerUps.current.forEach(p => {
+          if(p.target === 'player') ctx.fillText(p.type, width / 4, height/8 + height/16);
+          if(p.target === 'opponent') ctx.fillText(p.type, (width / 4)*3, height/8 + height/16);
+      });
+
       if (gameStatus.current !== 'playing') {
-        ctx.fillStyle = 'rgba(19, 38, 47, 0.7)';
-        ctx.fillRect(0,0,width,height);
-        ctx.font = `${width/20}px Poppins`;
-        ctx.fillStyle = 'rgba(211, 208, 203, 0.8)';
+        ctx.fillStyle = 'rgba(19, 38, 47, 0.7)'; ctx.fillRect(0,0,width,height);
+        ctx.font = `${width/20}px Poppins`; ctx.fillStyle = 'rgba(211, 208, 203, 0.8)';
         ctx.textAlign = 'center';
-        ctx.fillText(message, width / 2, height / 2 - (height/10));
+        ctx.fillText(messageRef.current, width / 2, height / 2 - (height/10));
         if (gameStatus.current === 'gameOver') {
             ctx.font = `${width/40}px Poppins`;
             ctx.fillText('Click or Tap to play again', width / 2, height / 2);
         }
-        ctx.textAlign = 'left';
       }
       
       animationFrameId = requestAnimationFrame(gameLoop);
@@ -247,7 +340,8 @@ const PingPong: React.FC = () => {
       window.removeEventListener('resize', updateDimensions);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [updateDimensions, resetGame, resetBall, message, score, sounds, createParticles]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateDimensions, resetGame, sounds, createParticles, spawnPowerUp]); // The dependency array is now safe.
 
   useEffect(() => {
     if (score.player === gameDimensions.current.winningScore) {
@@ -275,10 +369,9 @@ const PingPong: React.FC = () => {
 
     let clientY: number | undefined;
 
-    // Check for touch event first
     if ('touches' in e && e.touches.length > 0) {
       clientY = e.touches[0].clientY;
-    } else if ('clientY' in e) { // Then check for mouse event
+    } else if ('clientY' in e) {
       clientY = (e as React.MouseEvent).clientY;
     }
 
@@ -287,11 +380,11 @@ const PingPong: React.FC = () => {
     const rect = canvas.getBoundingClientRect();
     const mouseY = clientY - rect.top;
     
-    let newY = mouseY - gameDimensions.current.paddleHeight / 2;
+    let newY = mouseY - player.current.height / 2;
     
     if (newY < 0) newY = 0;
-    if (newY > gameDimensions.current.height - gameDimensions.current.paddleHeight) {
-      newY = gameDimensions.current.height - gameDimensions.current.paddleHeight;
+    if (newY > gameDimensions.current.height - player.current.height) {
+      newY = gameDimensions.current.height - player.current.height;
     }
     player.current.y = newY;
   }, []);
