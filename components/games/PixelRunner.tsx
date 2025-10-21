@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { statsManager } from '../../utils/statsManager';
 
@@ -274,7 +275,7 @@ const PixelRunner: React.FC = () => {
     <div ref={containerRef} className="w-full h-full cursor-pointer">
        <canvas
         ref={canvasRef}
-        onClick={handleCanvasInteraction}
+        onMouseDown={handleCanvasInteraction}
         onTouchStart={handleCanvasInteraction}
         className="bg-gable-green rounded-lg shadow-glow w-full h-full"
       />

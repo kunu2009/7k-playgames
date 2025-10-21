@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useSounds } from '../../hooks/useSounds';
 import { SOUND_EFFECTS } from '../../utils/sounds';
@@ -224,7 +225,7 @@ const PingPong: React.FC = () => {
         ball.current.y += ball.current.dy * ballSpeedMultiplier;
 
         ballTrail.current.unshift({ x: ball.current.x, y: ball.current.y });
-        if (ballTrail.current.length > 7) {
+        if (ballTrail.current.length > 8) { // Slightly longer trail
             ballTrail.current.pop();
         }
 
@@ -237,30 +238,41 @@ const PingPong: React.FC = () => {
         // --- PADDLE COLLISION ---
         const maxSpeedX = width / 60;
         let p = ball.current.x < width / 2 ? player.current : opponent.current;
-        let paddleHeight = p.height;
         if (
-          (ball.current.x - ballRadius < paddleWidth && ball.current.dx < 0 && ball.current.y > p.y && ball.current.y < p.y + paddleHeight) ||
-          (ball.current.x + ballRadius > width - paddleWidth && ball.current.dx > 0 && ball.current.y > p.y && ball.current.y < p.y + paddleHeight)
+          (ball.current.x - ballRadius < paddleWidth && ball.current.dx < 0 && ball.current.y > p.y && ball.current.y < p.y + p.height) ||
+          (ball.current.x + ballRadius > width - paddleWidth && ball.current.dx > 0 && ball.current.y > p.y && ball.current.y < p.y + p.height)
         ) {
             sounds.click();
             createParticles(ball.current.x, ball.current.y);
             ball.current.lastHitBy = (p === player.current) ? 'player' : 'opponent';
-            
-            if(Math.abs(ball.current.dx) < maxSpeedX) ball.current.dx *= -1.05;
-            else ball.current.dx *= -1;
 
-            let collidePoint = (ball.current.y - (p.y + paddleHeight / 2));
-            collidePoint = collidePoint / (paddleHeight/2);
-            
-            const maxAngleFactor = width / 120;
-            ball.current.dy = collidePoint * maxAngleFactor;
+            // --- REFINED PHYSICS LOGIC ---
+            let collidePoint = (ball.current.y - (p.y + p.height / 2)) / (p.height / 2); // -1 (top) to 1 (bottom)
 
+            // 1. More realistic speed variation
+            const baseSpeedIncrease = 1.03;
+            const centerHitBonus = 1 - Math.abs(collidePoint) * 0.04; // Faster returns from center hits
+            ball.current.dx *= -(baseSpeedIncrease * centerHitBonus);
+
+            // 2. Cap the speed
+            if (Math.abs(ball.current.dx) > maxSpeedX) {
+              ball.current.dx = maxSpeedX * Math.sign(ball.current.dx);
+            }
+
+            // 3. More realistic bounce angle
+            const bounceAngleFactor = 5 * scale; // Controls how much angle is imparted
+            ball.current.dy = collidePoint * bounceAngleFactor;
+
+            // 4. Apply spin from paddle movement
             const paddleVy = (p === player.current) ? player.current.vy : 0;
             const spinFromSpeed = paddleVy * 0.02;
             const spinFromCollision = collidePoint * 0.03;
             const newSpin = (ball.current.spinY * 0.4) + spinFromSpeed + spinFromCollision;
             const maxSpin = 0.5 * scale;
             ball.current.spinY = Math.max(-maxSpin, Math.min(maxSpin, newSpin));
+
+            // 5. Add slight random deviation for unpredictability
+            ball.current.dy += (Math.random() - 0.5) * (0.3 * scale);
         }
         
         // --- POWER-UP COLLECTION ---
@@ -305,29 +317,42 @@ const PingPong: React.FC = () => {
       ctx.fillRect(0, player.current.y, paddleWidth, player.current.height);
       ctx.fillRect(width - paddleWidth, opponent.current.y, paddleWidth, opponent.current.height);
 
-      // Draw ball trail
+      // Draw ball trail with glow effect based on spin
       ballTrail.current.forEach((pos, index) => {
         const progress = index / ballTrail.current.length;
-        const opacity = (1 - progress) * 0.6;
-        const radius = ballRadius * (1 - progress) * 0.8;
+        const opacity = (1 - progress) * 0.7; // slightly more visible
+        const radius = ballRadius * (1 - progress);
         if (radius < 1) return;
 
-        const spinIntensity = Math.min(1, Math.abs(ball.current.spinY) / (0.5 * scale));
-        let trailColor = `rgba(54, 215, 183, ${opacity * 0.5})`; // Default trail
-        if (ball.current.spinY > 0.1) { // Downward spin (backspin) -> Reddish
-            trailColor = `rgba(255, 99, 71, ${opacity * spinIntensity})`;
-        } else if (ball.current.spinY < -0.1) { // Upward spin (topspin) -> Bluish
-            trailColor = `rgba(135, 206, 235, ${opacity * spinIntensity})`;
+        const spinIntensity = Math.min(1, Math.abs(ball.current.spinY) / (0.4 * scale));
+        
+        // Default (no spin) trail color - a faint white glow
+        let trailColor = `rgba(211, 208, 203, ${opacity * 0.3})`;
+        let glowColor = 'rgba(211, 208, 203, 1)';
+
+        if (ball.current.spinY > 0.05) { // Downward spin (backspin) -> Red-Orange
+            trailColor = `rgba(255, 100, 70, ${opacity * spinIntensity * 0.9})`;
+            glowColor = 'rgba(255, 100, 70, 1)';
+        } else if (ball.current.spinY < -0.05) { // Upward spin (topspin) -> Sky Blue
+            trailColor = `rgba(135, 206, 250, ${opacity * spinIntensity * 0.9})`;
+            glowColor = 'rgba(135, 206, 250, 1)';
         }
+        
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = radius * 2.5; // More pronounced glow
         
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
         ctx.fillStyle = trailColor;
         ctx.fill();
       });
+      // Reset shadow for subsequent drawings
+      ctx.shadowBlur = 0;
 
       const ballGlow = 10 + Math.abs(ball.current.dx);
       ctx.shadowBlur = ballGlow;
+      ctx.shadowColor = '#36d7b7';
+      ctx.fillStyle = '#d3d0cb';
       ctx.beginPath(); ctx.arc(ball.current.x, ball.current.y, ballRadius, 0, Math.PI * 2);
       ctx.fill(); ctx.shadowBlur = 0;
 
