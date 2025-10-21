@@ -43,6 +43,13 @@ const GameModal: React.FC<GameModalProps> = ({ game, onClose, onPlay }) => {
             <div className="text-sm font-semibold text-calypso mb-4">{game.mode}</div>
             <p className="text-bali-hai flex-grow mb-6">{game.description}</p>
             
+            {game.controls && (
+              <div className="mb-6">
+                <h3 className="text-lg font-orbitron text-bali-hai mb-2">Controls</h3>
+                <p className="text-sm text-regent-gray">{game.controls}</p>
+              </div>
+            )}
+
             <div className="mb-6 pt-4 border-t border-calypso/30">
               <h3 className="text-lg font-orbitron text-bali-hai mb-2">Stats</h3>
               <div className="flex justify-around text-center">
