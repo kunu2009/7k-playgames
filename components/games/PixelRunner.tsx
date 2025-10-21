@@ -94,16 +94,26 @@ const PixelRunner: React.FC = () => {
   }, [gameState, resetGame]);
   
   useEffect(() => {
-    const handleKeyDown = () => handleInput();
-    const handleInteraction = () => handleInput();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.key === ' ' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        handleInput();
+      }
+    };
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      handleInput();
+    };
+    const handleClick = () => handleInput();
+
     window.addEventListener('keydown', handleKeyDown);
     const canvas = canvasRef.current;
-    canvas?.addEventListener('click', handleInteraction);
-    canvas?.addEventListener('touchstart', handleInteraction);
+    canvas?.addEventListener('click', handleClick);
+    canvas?.addEventListener('touchstart', handleTouchStart, { passive: false });
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      canvas?.removeEventListener('click', handleInteraction);
-      canvas?.removeEventListener('touchstart', handleInteraction);
+      canvas?.removeEventListener('click', handleClick);
+      canvas?.removeEventListener('touchstart', handleTouchStart);
     };
   }, [handleInput]);
   
@@ -245,11 +255,11 @@ const PixelRunner: React.FC = () => {
       ctx.textAlign = 'center';
       if (gameState === 'start') {
         ctx.font = `${48 * scale}px Poppins`; ctx.fillText('Pixel Runner', width / 2, height / 2 - 40 * scale);
-        ctx.font = `${24 * scale}px Poppins`; ctx.fillText('Tap or Press Any Key to Start', width / 2, height / 2);
+        ctx.font = `${24 * scale}px Poppins`; ctx.fillText('Tap or Press Space to Start', width / 2, height / 2);
       } else if (gameState === 'gameOver') {
         ctx.font = `${48 * scale}px Poppins`; ctx.fillText('Game Over', width / 2, height / 2 - 40 * scale);
         ctx.font = `${24 * scale}px Poppins`; ctx.fillText(`Final Score: ${score}`, width / 2, height / 2);
-        ctx.font = `${18 * scale}px Poppins`; ctx.fillText('Tap or Press Any Key to Play Again', width / 2, height / 2 + 40 * scale);
+        ctx.font = `${18 * scale}px Poppins`; ctx.fillText('Tap or Press Space to Play Again', width / 2, height / 2 + 40 * scale);
       }
       animationFrameId = requestAnimationFrame(gameLoop);
     };

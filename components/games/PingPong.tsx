@@ -199,7 +199,8 @@ const PingPong: React.FC = () => {
       }
     };
 
-    const handleInteractionStart = () => {
+    const handleInteractionStart = (e: MouseEvent | TouchEvent) => {
+        e.preventDefault();
         if (gameStatus.current === 'start') {
             gameStatus.current = 'playing';
             setMessage('');
@@ -211,7 +212,7 @@ const PingPong: React.FC = () => {
     canvas.addEventListener('mousemove', handleMove);
     canvas.addEventListener('touchmove', handleMove, { passive: false });
     canvas.addEventListener('click', handleInteractionStart);
-    canvas.addEventListener('touchstart', handleInteractionStart);
+    canvas.addEventListener('touchstart', handleInteractionStart, { passive: false });
 
     return () => {
       canvas.removeEventListener('mousemove', handleMove);

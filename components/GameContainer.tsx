@@ -5,6 +5,7 @@ import PingPong from './games/PingPong';
 import PixelRunner from './games/PixelRunner';
 import MindMerge from './games/MindMerge';
 import ChessBlitz from './games/ChessBlitz';
+import CityBuilderLite from './games/CityBuilderLite';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 
 interface GameContainerProps {
@@ -23,6 +24,8 @@ const GameContainer: React.FC<GameContainerProps> = ({ game, onExit }) => {
         return <MindMerge />;
       case '7k-chess-blitz':
         return <ChessBlitz />;
+      case 'city-builder-lite':
+        return <CityBuilderLite />;
       default:
         return (
           <div className="text-center">

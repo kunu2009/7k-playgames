@@ -34,7 +34,7 @@ const MindMerge: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(INITIAL_TIME);
   const [gameState, setGameState] = useState<'start' | 'playing' | 'gameOver'>('start');
 
-  const grid = useRef<Node[][]>([]);
+  const grid = useRef<(Node | null)[][]>([]);
   const selectedNode = useRef<Node | null>(null);
   const lastFrameTime = useRef(0);
   const timeAccumulator = useRef(0);
@@ -80,11 +80,11 @@ const MindMerge: React.FC = () => {
   }, []);
 
   const initializeBoard = useCallback(() => {
-    const newGrid: Node[][] = Array(GRID_ROWS).fill(0).map(() => Array(GRID_COLS).fill(null));
+    const newGrid: (Node | null)[][] = Array(GRID_ROWS).fill(0).map(() => Array(GRID_COLS).fill(null));
     const availableNodes: { row: number; col: number }[] = [];
     for (let r = 0; r < GRID_ROWS; r++) {
-      for (let c = 0; c < GRID_COLS; c++) {
-        availableNodes.push({ row: r, col: c });
+      for (let c_ = 0; c_ < GRID_COLS; c_++) {
+        availableNodes.push({ row: r, col: c_ });
       }
     }
     availableNodes.sort(() => Math.random() - 0.5); // Shuffle
@@ -205,7 +205,7 @@ const MindMerge: React.FC = () => {
           grid.current[selectedNode.current.row][selectedNode.current.col] = null;
           grid.current[clickedNode.row][clickedNode.col] = null;
           setScore(s => s + 100);
-          setTimeLeft(t => Math.min(INITIAL_TIME, t + 1));
+          setTimeLeft(t => Math.min(INITIAL_TIME, t + 1.5));
           winningPath.current = path;
           pathFade.current = 1.0;
         }
@@ -265,11 +265,11 @@ const MindMerge: React.FC = () => {
 
       // Draw nodes
       for (let r = 0; r < GRID_ROWS; r++) {
-        for (let c = 0; c < GRID_COLS; c++) {
-          const node = grid.current[r][c];
+        for (let c_ = 0; c_ < GRID_COLS; c_++) {
+          const node = grid.current[r][c_];
           if (!node || node.cleared) continue;
 
-          const cx = gridOffsetX + (c + 0.5) * cellWidth;
+          const cx = gridOffsetX + (c_ + 0.5) * cellWidth;
           const cy = gridOffsetY + (r + 0.5) * cellHeight;
           
           const isSelected = selectedNode.current?.id === node.id;
@@ -288,7 +288,7 @@ const MindMerge: React.FC = () => {
       ctx.fillStyle = '#d3d0cb';
       ctx.textAlign = 'center';
       ctx.font = `700 ${32 * scale}px Orbitron`;
-      ctx.fillText(`Time: ${timeLeft}`, width / 2, 40 * scale);
+      ctx.fillText(`Time: ${Math.ceil(timeLeft)}`, width / 2, 40 * scale);
       ctx.font = `700 ${24 * scale}px Orbitron`;
       ctx.textAlign = 'left';
       ctx.fillText(`Score: ${score}`, 20 * scale, 40 * scale);
@@ -321,10 +321,10 @@ const MindMerge: React.FC = () => {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.addEventListener('mousedown', handleInput);
+    canvas.addEventListener('click', handleInput);
     canvas.addEventListener('touchstart', handleInput, { passive: false });
     return () => {
-      canvas.removeEventListener('mousedown', handleInput);
+      canvas.removeEventListener('click', handleInput);
       canvas.removeEventListener('touchstart', handleInput);
     };
   }, [handleInput]);
