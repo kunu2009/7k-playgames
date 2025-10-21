@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { statsManager } from '../../utils/statsManager';
 
@@ -27,13 +26,21 @@ const PixelRunner: React.FC = () => {
   const [highScore, setHighScore] = useState(0);
   const [gameState, setGameState] = useState<'start' | 'playing' | 'gameOver'>('start');
 
-  // Use refs for mutable game state
+  // Use refs for mutable game state that's accessed inside the game loop
   const player = useRef({ y: 0, vy: 0, onGround: true });
   const gameObjects = useRef<GameObject[]>([]);
   const frameCount = useRef(0);
   const gameSpeed = useRef(0);
   const parallaxOffset = useRef(0);
   
+  // Refs to sync state with the game loop to avoid stale closures
+  const scoreRef = useRef(score);
+  scoreRef.current = score;
+  const highScoreRef = useRef(highScore);
+  highScoreRef.current = highScore;
+  const gameStateRef = useRef(gameState);
+  gameStateRef.current = gameState;
+
   // Scalable game constants
   const c = useRef({
       width: 800, height: 500, scale: 1,
@@ -88,15 +95,15 @@ const PixelRunner: React.FC = () => {
   }, []);
   
   const handleInput = useCallback(() => {
-    if (gameState === 'start') {
+    if (gameStateRef.current === 'start') {
       setGameState('playing');
-    } else if (gameState === 'playing' && player.current.onGround) {
+    } else if (gameStateRef.current === 'playing' && player.current.onGround) {
       player.current.vy = c.current.jumpForce;
       player.current.onGround = false;
-    } else if (gameState === 'gameOver') {
+    } else if (gameStateRef.current === 'gameOver') {
       resetGame();
     }
-  }, [gameState, resetGame]);
+  }, [resetGame]);
 
   const handleCanvasInteraction = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
@@ -122,7 +129,8 @@ const PixelRunner: React.FC = () => {
     resetGame();
     
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
     let animationFrameId: number;
 
@@ -152,7 +160,7 @@ const PixelRunner: React.FC = () => {
       ctx.fillRect(0, height - groundHeight, width, groundHeight);
       ctx.shadowBlur = 0;
 
-      if (gameState === 'playing') {
+      if (gameStateRef.current === 'playing') {
         frameCount.current++;
         gameSpeed.current += c.current.gameSpeedIncrement;
 
@@ -227,11 +235,11 @@ const PixelRunner: React.FC = () => {
       ctx.fillRect(playerX, player.current.y, playerWidth, playerHeight);
       ctx.shadowBlur = 0;
       
-      if(gameState === 'playing') {
+      if(gameStateRef.current === 'playing') {
         for (const obj of gameObjects.current) {
             if (obj.type === 'ground' || obj.type === 'flying') {
               if (playerX < obj.x + obj.width && playerX + playerWidth > obj.x && player.current.y < obj.y + obj.height && player.current.y + playerHeight > obj.y) {
-                const newHighScore = statsManager.updateHighScore('pixel-runner', score);
+                const newHighScore = statsManager.updateHighScore('pixel-runner', scoreRef.current);
                 setHighScore(newHighScore);
                 setGameState('gameOver');
                 break; 
@@ -249,27 +257,27 @@ const PixelRunner: React.FC = () => {
 
       ctx.fillStyle = '#d3d0cb';
       ctx.font = `700 ${32 * scale}px Orbitron`;
-      ctx.textAlign = 'left'; ctx.fillText(`Score: ${score}`, 20 * scale, 40 * scale);
-      ctx.textAlign = 'right'; ctx.fillText(`High: ${highScore}`, width - 20 * scale, 40 * scale);
+      ctx.textAlign = 'left'; ctx.fillText(`Score: ${scoreRef.current}`, 20 * scale, 40 * scale);
+      ctx.textAlign = 'right'; ctx.fillText(`High: ${highScoreRef.current}`, width - 20 * scale, 40 * scale);
       
       ctx.textAlign = 'center';
-      if (gameState === 'start') {
+      if (gameStateRef.current === 'start') {
         ctx.font = `${48 * scale}px Poppins`; ctx.fillText('Pixel Runner', width / 2, height / 2 - 40 * scale);
         ctx.font = `${24 * scale}px Poppins`; ctx.fillText('Tap or Press Space to Start', width / 2, height / 2);
-      } else if (gameState === 'gameOver') {
+      } else if (gameStateRef.current === 'gameOver') {
         ctx.font = `${48 * scale}px Poppins`; ctx.fillText('Game Over', width / 2, height / 2 - 40 * scale);
-        ctx.font = `${24 * scale}px Poppins`; ctx.fillText(`Final Score: ${score}`, width / 2, height / 2);
+        ctx.font = `${24 * scale}px Poppins`; ctx.fillText(`Final Score: ${scoreRef.current}`, width / 2, height / 2);
         ctx.font = `${18 * scale}px Poppins`; ctx.fillText('Tap or Press Space to Play Again', width / 2, height / 2 + 40 * scale);
       }
       animationFrameId = requestAnimationFrame(gameLoop);
     };
 
-    gameLoop();
+    animationFrameId = requestAnimationFrame(gameLoop);
     return () => {
       window.removeEventListener('resize', updateConstants);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [gameState, score, highScore, handleInput, resetGame, updateConstants]);
+  }, [handleInput, resetGame, updateConstants]);
 
   return (
     <div ref={containerRef} className="w-full h-full cursor-pointer">
