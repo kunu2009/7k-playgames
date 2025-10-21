@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Game } from '../types';
 import StarIcon from './icons/StarIcon';
@@ -9,9 +8,10 @@ interface GameCardProps {
   isFavorite: boolean;
   onSelect: (game: Game) => void;
   onFavoriteToggle: (id: string) => void;
+  onHover: () => void;
 }
 
-const GameCard: React.FC<GameCardProps> = ({ game, isFavorite, onSelect, onFavoriteToggle }) => {
+const GameCard: React.FC<GameCardProps> = ({ game, isFavorite, onSelect, onFavoriteToggle, onHover }) => {
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onFavoriteToggle(game.id);
@@ -21,6 +21,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, isFavorite, onSelect, onFavor
     <div 
       className="bg-calypso/20 rounded-xl overflow-hidden shadow-glow hover:shadow-glow-hover border border-calypso/30 cursor-pointer transition-all duration-300 ease-in-out transform hover:-translate-y-2 group relative"
       onClick={() => onSelect(game)}
+      onMouseEnter={onHover}
     >
       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-gable-green via-gable-green/50 to-transparent z-10"></div>
       <img src={game.coverArt} alt={game.title} className="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-110" />
