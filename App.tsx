@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback } from 'react';
 import { Game, GameType } from './types';
 import { ALL_GAMES } from './constants';
@@ -9,6 +8,7 @@ import GameCard from './components/GameCard';
 import GameModal from './components/GameModal';
 import ParticleBackground from './components/ParticleBackground';
 import SplashScreen from './components/SplashScreen';
+import GameContainer from './components/GameContainer';
 
 type FilterType = 'ALL' | GameType | 'FAVORITES';
 
@@ -16,6 +16,7 @@ function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  const [activeGame, setActiveGame] = useState<Game | null>(null);
   const [favorites, setFavorites] = useLocalStorage<string[]>('7k-favorites', []);
 
   const handleFavoriteToggle = useCallback((gameId: string) => {
@@ -38,9 +39,23 @@ function App() {
         return ALL_GAMES;
     }
   }, [filter, favorites]);
+  
+  const handlePlayGame = useCallback((game: Game) => {
+    setSelectedGame(null);
+    setActiveGame(game);
+  }, []);
+
+  const handleExitGame = useCallback(() => {
+    setActiveGame(null);
+  }, []);
+
 
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
+
+  if (activeGame) {
+    return <GameContainer game={activeGame} onExit={handleExitGame} />;
   }
 
   return (
@@ -76,6 +91,7 @@ function App() {
         <GameModal 
           game={selectedGame} 
           onClose={() => setSelectedGame(null)} 
+          onPlay={handlePlayGame}
         />
       )}
     </div>

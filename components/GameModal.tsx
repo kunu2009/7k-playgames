@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Game } from '../types';
 import CloseIcon from './icons/CloseIcon';
@@ -6,9 +5,10 @@ import CloseIcon from './icons/CloseIcon';
 interface GameModalProps {
   game: Game;
   onClose: () => void;
+  onPlay: (game: Game) => void;
 }
 
-const GameModal: React.FC<GameModalProps> = ({ game, onClose }) => {
+const GameModal: React.FC<GameModalProps> = ({ game, onClose, onPlay }) => {
   return (
     <div 
       className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-md flex items-center justify-center z-50 p-4"
@@ -35,10 +35,7 @@ const GameModal: React.FC<GameModalProps> = ({ game, onClose }) => {
             <p className="text-bali-hai flex-grow mb-6">{game.description}</p>
             <button 
               className="mt-auto w-full bg-calypso text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-opacity-90 transform hover:scale-105 transition-all duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-bali-hai"
-              onClick={() => {
-                console.log(`Playing ${game.title}`);
-                onClose();
-              }}
+              onClick={() => onPlay(game)}
             >
               Play Now
             </button>
