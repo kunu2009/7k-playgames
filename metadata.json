@@ -1,0 +1,5 @@
+{
+  "name": "7K Games - The Ultimate Local & Solo Game Hub",
+  "description": "A central menu that lets users pick from 15 mini-games (both single and local-multiplayer). Each game tile shows a name, mode, and a short tagline, opening a details modal on click.",
+  "requestFramePermissions": []
+}
