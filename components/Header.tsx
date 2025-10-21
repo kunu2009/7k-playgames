@@ -1,12 +1,11 @@
 
 import React from 'react';
+import LogoIcon from './icons/LogoIcon';
 
 const Header: React.FC = () => {
   return (
-    <header className="py-6 text-center">
-      <h1 className="text-4xl md:text-5xl font-orbitron font-bold text-timberwolf tracking-widest" style={{ textShadow: '0 0 10px #36d7b7, 0 0 15px #36d7b7' }}>
-        7K GAMES
-      </h1>
+    <header className="py-4 text-center flex justify-center items-center">
+      <LogoIcon className="w-24 h-24 md:w-32 md:h-32" />
     </header>
   );
 };

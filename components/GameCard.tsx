@@ -1,4 +1,4 @@
-// Fix: Re-formatted and cleaned the component to resolve likely parsing errors.
+
 import React, { useState } from 'react';
 import { Game } from '../types';
 import StarIcon from './icons/StarIcon';
@@ -27,7 +27,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, isFavorite, onSelect, onFavor
       onMouseLeave={() => setShowTooltip(false)}
     >
       <div 
-        className="bg-calypso/20 rounded-xl overflow-hidden shadow-glow border border-calypso/30 cursor-pointer transition-all duration-300 ease-in-out transform group-hover:-translate-y-2 group-hover:scale-105 group-hover:-rotate-1 group-hover:animate-neon-glow"
+        className="bg-calypso/20 rounded-xl overflow-hidden shadow-glow border border-calypso/30 cursor-pointer transition-all duration-300 ease-in-out transform group-hover:-translate-y-2 group-hover:scale-105 group-hover:-rotate-1 group-hover:shadow-glow-hover"
         onClick={() => onSelect(game)}
       >
         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-gable-green via-gable-green/50 to-transparent z-10"></div>

@@ -1,0 +1,17 @@
+{
+  "name": "7K Games Hub",
+  "short_name": "7K Games",
+  "description": "The Ultimate Local & Solo Game Hub",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#13262f",
+  "theme_color": "#17557b",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
